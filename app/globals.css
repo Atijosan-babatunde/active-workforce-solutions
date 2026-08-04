@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+body {
+  background-color: #F5F4EF;
+  color: #12181C;
+}
+
+/* Visible keyboard focus for every interactive element */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #2F6F62;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  background: #16233A;
+  color: white;
+  padding: 12px 20px;
+  z-index: 100;
+  border-radius: 0 0 8px 0;
+}
+.skip-link:focus {
+  left: 0;
+  top: 0;
+}
+
+.eyebrow {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.prose-body p {
+  margin-bottom: 1rem;
+}
+
+/* Bold, legible headline text over photographic banners without needing a heavy overlay */
+.text-shadow-banner {
+  text-shadow: 0 2px 24px rgba(6, 12, 28, 0.55), 0 1px 3px rgba(6, 12, 28, 0.8);
+}
+
+/* Slow, subtle drift so hero photography feels alive rather than static — respects prefers-reduced-motion via the global rule above */
+@keyframes heroDrift {
+  from { transform: scale(1.06); }
+  to { transform: scale(1); }
+}
+.hero-image {
+  animation: heroDrift 10s ease-out forwards;
+}
