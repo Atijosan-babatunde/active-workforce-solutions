@@ -26,21 +26,11 @@ export default function Page() {
         <div className="space-y-8">
           <div>
             <h2 className="font-display text-2xl text-navy mb-3">Our objective</h2>
-            <p className="text-ink/80 leading-relaxed">
-              Our objective is to give organisations and individuals confidence
-              that the practical details — coordination, communication and
-              delivery — are being handled to a consistently professional
-              standard, across every division we operate.
-            </p>
+            <p className="text-ink/80 leading-relaxed">Our objective is to give organisations and individuals confidence that the practical details coordination, communication and delivery are being handled to a consistently professional standard, across every division we operate.</p>
           </div>
           <div>
             <h2 className="font-display text-2xl text-navy mb-3">How we work</h2>
-            <p className="text-ink/80 leading-relaxed">
-              Every engagement follows the same client journey: Discover,
-              Consult, Design, Deliver, Review and Improve. This gives clients
-              and partners a consistent, predictable experience regardless of
-              which division they are working with.
-            </p>
+            <p className="text-ink/80 leading-relaxed">Every engagement follows the same client journey: Discover, Consult, Design, Deliver, Review and Improve. This gives clients and partners a consistent, predictable experience regardless of which division they are working with.</p>
           </div>
         </div>
         <div className="relative h-72 lg:h-96 rounded-card overflow-hidden">

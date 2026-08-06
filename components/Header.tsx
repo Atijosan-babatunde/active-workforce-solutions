@@ -3,8 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
+import { Briefcase, UserPlus } from "lucide-react";
 import { divisions } from "@/lib/content/divisions";
 import IconBadge from "./IconBadge";
+
+const otherDivisions = divisions.filter((d) => d.slug !== "active-workforce-recruitment");
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -26,7 +29,7 @@ export default function Header() {
             </button>
             <div className="absolute left-0 top-full pt-3 hidden group-hover:block group-focus-within:block">
               <ul className="w-80 bg-white border border-line rounded-card shadow-lg p-2">
-                {divisions.map((d) => (
+                {otherDivisions.map((d) => (
                   <li key={d.slug}>
                     <Link href={`/${d.slug}`} className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-sand text-ink">
                       <IconBadge icon={d.icon} color={d.color} size="sm" />
@@ -37,11 +40,32 @@ export default function Header() {
               </ul>
             </div>
           </div>
+          <div className="relative group">
+            <button className="flex items-center gap-1 text-ink hover:text-teal transition-colors" aria-haspopup="true">
+              Active Workforce Recruitment
+            </button>
+            <div className="absolute left-0 top-full pt-3 hidden group-hover:block group-focus-within:block">
+              <ul className="w-72 bg-white border border-line rounded-card shadow-lg p-2">
+                <li>
+                  <Link href="/active-workforce-recruitment/perm-temp" className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-sand text-ink">
+                    <IconBadge icon={Briefcase} color="gold" size="sm" />
+                    Perm &amp; Temp Recruitment
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/active-workforce-recruitment" className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-sand text-ink">
+                    <IconBadge icon={UserPlus} color="gold" size="sm" />
+                    Register with Us
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
           <Link href="/resources" className="text-ink hover:text-teal transition-colors">
             Resources
           </Link>
           <Link href="/contact" className="text-ink hover:text-teal transition-colors">
-            Contact
+            Contact Us
           </Link>
         </nav>
 
@@ -66,7 +90,7 @@ export default function Header() {
                 About Us
               </Link>
             </li>
-            {divisions.map((d, i) => (
+            {otherDivisions.map((d, i) => (
               <li key={d.slug} className={i === 0 ? "pt-2 mt-2 border-t border-line" : undefined}>
                 <Link href={`/${d.slug}`} className="flex items-center gap-3 py-2.5 text-ink" onClick={() => setOpen(false)}>
                   <IconBadge icon={d.icon} color={d.color} size="sm" />
@@ -74,6 +98,21 @@ export default function Header() {
                 </Link>
               </li>
             ))}
+            <li className="pt-2 mt-2 border-t border-line">
+              <span className="block py-1.5 text-xs font-semibold uppercase tracking-wide text-muted">Active Workforce Recruitment</span>
+            </li>
+            <li>
+              <Link href="/active-workforce-recruitment/perm-temp" className="flex items-center gap-3 py-2.5 text-ink" onClick={() => setOpen(false)}>
+                <IconBadge icon={Briefcase} color="gold" size="sm" />
+                Perm &amp; Temp Recruitment
+              </Link>
+            </li>
+            <li>
+              <Link href="/active-workforce-recruitment" className="flex items-center gap-3 py-2.5 text-ink" onClick={() => setOpen(false)}>
+                <IconBadge icon={UserPlus} color="gold" size="sm" />
+                Register with Us
+              </Link>
+            </li>
             <li>
               <Link href="/resources" className="block py-2.5 text-ink" onClick={() => setOpen(false)}>
                 Resources
