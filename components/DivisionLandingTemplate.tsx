@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Sparkles, Users, Award, MessageCircleHeart, ArrowRight, Briefcase } from "lucide-react";
 import ServiceHero from "./ServiceHero";
 import CTASection from "./CTASection";
-import StaffBadge from "./StaffBadge";
 import type { Division } from "@/lib/content/divisions";
 
 type Props = {
@@ -12,13 +11,16 @@ type Props = {
   secondaryImage?: string;
   offerBody: string;
   whoBody: string;
-  showStaffBadge?: boolean;
-  staffBadgeLabel?: string;
   /** Optional interactive engagement flow (e.g. a guided "Get Started" wizard), rendered full-width right after the hero. */
   engagementFlow?: React.ReactNode;
 };
 
-export default function DivisionLandingTemplate({ division, image, secondaryImage, offerBody, whoBody, showStaffBadge, staffBadgeLabel, engagementFlow }: Props) {
+export default function DivisionLandingTemplate({ division, image, secondaryImage, offerBody, whoBody, engagementFlow }: Props) {
+  // Send the primary CTA straight to the actual form — the on-page engagement
+  // flow if this division has one, otherwise the enquiry wizard on /contact —
+  // rather than to the sidebar card that just links onward to it.
+  const primaryHref = engagementFlow ? "#get-started" : `/contact?division=${division.slug}`;
+
   return (
     <>
       <ServiceHero
@@ -27,9 +29,8 @@ export default function DivisionLandingTemplate({ division, image, secondaryImag
         supportingCopy={division.summary}
         primaryButton="Book a Consultation"
         secondaryButton="Enquire Now"
+        primaryHref={primaryHref}
         image={image}
-        badge={showStaffBadge}
-        badgeLabel={staffBadgeLabel}
       />
 
       {engagementFlow && (
@@ -57,7 +58,6 @@ export default function DivisionLandingTemplate({ division, image, secondaryImag
               <p className="text-shadow-banner absolute bottom-6 left-8 right-8 font-display text-2xl md:text-3xl text-white">
                 {division.name}
               </p>
-              {showStaffBadge && <StaffBadge label={staffBadgeLabel} />}
             </div>
           )}
 

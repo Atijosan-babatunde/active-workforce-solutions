@@ -2,21 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  ChevronLeft,
-  MapPin,
-  Users,
-  Building2,
-  User,
-  Mail,
-  Phone,
-  MessageSquare,
-  Lock,
-  CheckCircle2,
-  Loader2,
-  LogIn,
-} from "lucide-react";
-import { OptionCard, Field, inputClass } from "./wizard/FormControls";
+import { ChevronLeft, MapPin, Users, Building2, User, Mail, Phone, MessageSquare, Lock, CheckCircle2, Loader2, LogIn } from "lucide-react";
+import { OptionCard, Field, inputClass, isValidEmail, isValidPhone, isValidName, sanitizePhoneInput } from "./wizard/FormControls";
 import { createClient } from "@/lib/supabase/client";
 
 type Step = "prompt" | "location" | "requirements" | "preferences" | "contact" | "review" | "sent";
@@ -101,14 +88,17 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
     }
     if (step === "requirements") {
       if (!answers.roleType) return setError("Please choose the type of professional you need.");
+      if (!answers.numberNeeded || Number(answers.numberNeeded) < 1 || !Number.isInteger(Number(answers.numberNeeded))) {
+        return setError("Please enter how many workers you need (1 or more).");
+      }
       if (!answers.urgency) return setError("Please let us know how urgently you need cover.");
     }
     if (step === "contact") {
-      if (!answers.contactName.trim()) return setError("Please tell us your name.");
-      if (!loggedInEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(answers.email)) {
+      if (!isValidName(answers.contactName)) return setError("Please tell us your name.");
+      if (!loggedInEmail && !isValidEmail(answers.email)) {
         return setError("Please enter a valid email address.");
       }
-      if (answers.phone.trim().length < 7) return setError("Please enter a valid telephone number.");
+      if (!isValidPhone(answers.phone)) return setError("Please enter a valid telephone number.");
       if (accountsEnabled && !loggedInEmail) {
         if (answers.password.length < 6) return setError("Please choose a password of at least 6 characters.");
         if (answers.password !== answers.confirmPassword) return setError("Passwords don't match.");
@@ -213,23 +203,13 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
               Looking to Hire Care &amp; Support Professionals?
             </h2>
             <div className="mx-auto w-20 h-1 rounded-full bg-gradient-to-r from-navy to-gold my-5" />
-            <p className="text-ink/70 mb-7">
-              Tell us what you need and we&apos;ll match you with vetted, experienced candidates — a few quick
-              questions, no lengthy forms.
-            </p>
+            <p className="text-ink/70 mb-7">Tell us what you need and we&apos;ll match you with vetted, experienced candidates a few quick questions, no lengthy forms.</p>
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <button
-                type="button"
-                onClick={() => setStep("location")}
-                className="rounded-full bg-navy text-white font-medium px-7 py-3 hover:bg-navy2 transition-colors"
-              >
+              <button type="button" onClick={() => setStep("location")} className="rounded-full bg-navy text-white font-medium px-7 py-3 hover:bg-navy2 transition-colors">
                 Get Started
               </button>
               {accountsEnabled && (
-                <Link
-                  href="/portal/login"
-                  className="inline-flex items-center gap-2 rounded-full border-2 border-line px-7 py-3 font-medium text-navy hover:border-navy/30 transition-colors"
-                >
+                <Link href="/portal/login" className="inline-flex items-center gap-2 rounded-full border-2 border-line px-7 py-3 font-medium text-navy hover:border-navy/30 transition-colors">
                   <LogIn size={16} /> Login
                 </Link>
               )}
@@ -251,10 +231,7 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
               <CheckCircle2 size={28} strokeWidth={2} />
             </span>
             <h3 className="font-display text-2xl text-navy mb-2">Thank you</h3>
-            <p className="text-ink/75">
-              We&apos;re reviewing your requirements now and will personally match you with suitable candidates.
-              A member of our recruitment team will follow up shortly.
-            </p>
+            <p className="text-ink/75">We&apos;re reviewing your requirements now and will personally match you with suitable candidates. A member of our recruitment team will follow up shortly.</p>
             {accountsEnabled && (
               <Link href="/portal" className="inline-block mt-6 text-navy font-semibold hover:text-navy2">
                 Track the status of your request →
@@ -272,12 +249,7 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
               Where do you need workers?
             </h2>
             <Field label="Postcode or city" icon={<MapPin size={15} />}>
-              <input
-                className={inputClass}
-                value={answers.postcode}
-                onChange={(e) => set("postcode", e.target.value)}
-                placeholder="Enter your postcode or city"
-              />
+              <input className={inputClass} value={answers.postcode} onChange={(e) => set("postcode", e.target.value)} placeholder="Enter your postcode or city" />
             </Field>
           </>
         )}
@@ -297,12 +269,7 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
             </div>
 
             <Field label="How many workers do you need?" icon={<Users size={15} />}>
-              <input
-                className={inputClass}
-                value={answers.numberNeeded}
-                onChange={(e) => set("numberNeeded", e.target.value)}
-                placeholder="e.g. 1"
-              />
+              <input type="number" min={1} step={1} inputMode="numeric" className={inputClass} value={answers.numberNeeded} onChange={(e) => set("numberNeeded", e.target.value)} placeholder="e.g. 1" />
             </Field>
 
             <p className="text-sm font-medium text-navy mt-6 mb-3">How urgently do you need cover?</p>
@@ -324,22 +291,11 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
             </h2>
             <p className="text-sm text-muted mb-6">(Optional)</p>
             <label className="flex items-center gap-3 text-sm text-ink/80 mb-5">
-              <input
-                type="checkbox"
-                checked={answers.driverRequired}
-                onChange={(e) => set("driverRequired", e.target.checked)}
-                className="w-4 h-4 accent-gold"
-              />
+              <input type="checkbox" checked={answers.driverRequired} onChange={(e) => set("driverRequired", e.target.checked)} className="w-4 h-4 accent-gold" />
               Candidates must be able to drive
             </label>
             <Field label="Anything else we should know?" icon={<MessageSquare size={15} />}>
-              <textarea
-                rows={4}
-                className={inputClass}
-                value={answers.preferences}
-                onChange={(e) => set("preferences", e.target.value)}
-                placeholder="Shift pattern, qualifications, specialist skills…"
-              />
+              <textarea rows={4} className={inputClass} value={answers.preferences} onChange={(e) => set("preferences", e.target.value)} placeholder="Shift pattern, qualifications, specialist skills…" />
             </Field>
           </>
         )}
@@ -354,20 +310,10 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
             </h2>
             <div className="space-y-5">
               <Field label="Organisation" icon={<Building2 size={15} />}>
-                <input
-                  className={inputClass}
-                  value={answers.organisation}
-                  onChange={(e) => set("organisation", e.target.value)}
-                  placeholder="Your organisation's name"
-                />
+                <input className={inputClass} value={answers.organisation} onChange={(e) => set("organisation", e.target.value)} placeholder="Your organisation's name" />
               </Field>
               <Field label="Your name" icon={<User size={15} />}>
-                <input
-                  className={inputClass}
-                  value={answers.contactName}
-                  onChange={(e) => set("contactName", e.target.value)}
-                  placeholder="Jane Doe"
-                />
+                <input className={inputClass} value={answers.contactName} onChange={(e) => set("contactName", e.target.value)} placeholder="Jane Doe" />
               </Field>
               {loggedInEmail ? (
                 <Field label="Email address" icon={<Mail size={15} />}>
@@ -375,48 +321,21 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
                 </Field>
               ) : (
                 <Field label="Email address" icon={<Mail size={15} />}>
-                  <input
-                    type="email"
-                    className={inputClass}
-                    value={answers.email}
-                    onChange={(e) => set("email", e.target.value)}
-                    placeholder="you@example.com"
-                  />
+                  <input type="email" className={inputClass} value={answers.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" />
                 </Field>
               )}
               <Field label="Telephone number" icon={<Phone size={15} />}>
-                <input
-                  type="tel"
-                  className={inputClass}
-                  value={answers.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                  placeholder="07XXX XXXXXX"
-                />
+                <input type="tel" inputMode="tel" className={inputClass} value={answers.phone} onChange={(e) => set("phone", sanitizePhoneInput(e.target.value))} placeholder="07XXX XXXXXX" />
               </Field>
               {accountsEnabled && !loggedInEmail && (
                 <>
                   <Field label="Choose a password" icon={<Lock size={15} />}>
-                    <input
-                      type="password"
-                      className={inputClass}
-                      value={answers.password}
-                      onChange={(e) => set("password", e.target.value)}
-                      placeholder="At least 6 characters"
-                    />
+                    <input type="password" className={inputClass} value={answers.password} onChange={(e) => set("password", e.target.value)} placeholder="At least 6 characters" />
                   </Field>
                   <Field label="Confirm password" icon={<Lock size={15} />}>
-                    <input
-                      type="password"
-                      className={inputClass}
-                      value={answers.confirmPassword}
-                      onChange={(e) => set("confirmPassword", e.target.value)}
-                      placeholder="Re-enter your password"
-                    />
+                    <input type="password" className={inputClass} value={answers.confirmPassword} onChange={(e) => set("confirmPassword", e.target.value)} placeholder="Re-enter your password" />
                   </Field>
-                  <p className="text-xs text-muted">
-                    We'll use this to create your account so you can log back in later and see the status of this
-                    request.
-                  </p>
+                  <p className="text-xs text-muted">We'll use this to create your account so you can log back in later and see the status of this request.</p>
                 </>
               )}
             </div>
@@ -451,49 +370,27 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
               ))}
             </dl>
             <label className="flex items-start gap-3 text-sm text-ink/80 mb-2">
-              <input
-                type="checkbox"
-                checked={answers.consent}
-                onChange={(e) => set("consent", e.target.checked)}
-                className="mt-1 w-4 h-4 accent-gold"
-              />
-              I consent to Active Workforce Solutions contacting me about this enquiry and processing my data in
-              line with the privacy notice.
+              <input type="checkbox" checked={answers.consent} onChange={(e) => set("consent", e.target.checked)} className="mt-1 w-4 h-4 accent-gold" />I consent to Active Workforce Solutions contacting me about this enquiry and processing my data in line with the privacy notice.
             </label>
           </>
         )}
 
         {error && <p className="mt-4 text-sm text-rose font-medium">{error}</p>}
-        {status === "error" && (
-          <p className="mt-4 text-sm text-rose font-medium">Something went wrong sending your details. Please try again.</p>
-        )}
+        {status === "error" && <p className="mt-4 text-sm text-rose font-medium">Something went wrong sending your details. Please try again.</p>}
 
         {stepIndex >= 0 && (
           <div className="mt-8 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={goBack}
-              className="inline-flex items-center gap-1 rounded-full border border-line px-5 py-2.5 text-sm font-medium text-navy hover:bg-sand transition-colors"
-            >
+            <button type="button" onClick={goBack} className="inline-flex items-center gap-1 rounded-full border border-line px-5 py-2.5 text-sm font-medium text-navy hover:bg-sand transition-colors">
               <ChevronLeft size={16} /> Back
             </button>
 
             {step === "review" ? (
-              <button
-                type="button"
-                onClick={submit}
-                disabled={status === "sending"}
-                className="inline-flex items-center gap-2 rounded-full bg-navy text-white font-medium px-6 py-2.5 hover:bg-navy2 transition-colors disabled:opacity-70"
-              >
+              <button type="button" onClick={submit} disabled={status === "sending"} className="inline-flex items-center gap-2 rounded-full bg-navy text-white font-medium px-6 py-2.5 hover:bg-navy2 transition-colors disabled:opacity-70">
                 {status === "sending" && <Loader2 size={16} className="animate-spin" />}
                 {status === "sending" ? "Sending…" : "Get Started"}
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={validateAndAdvance}
-                className="inline-flex items-center gap-1 rounded-full bg-navy text-white font-medium px-6 py-2.5 hover:bg-navy2 transition-colors"
-              >
+              <button type="button" onClick={validateAndAdvance} className="inline-flex items-center gap-1 rounded-full bg-navy text-white font-medium px-6 py-2.5 hover:bg-navy2 transition-colors">
                 Continue
               </button>
             )}

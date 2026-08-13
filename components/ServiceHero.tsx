@@ -1,5 +1,4 @@
 import Image from "next/image";
-import StaffBadge from "./StaffBadge";
 
 type Props = {
   eyebrow: string;
@@ -11,14 +10,12 @@ type Props = {
   secondaryHref?: string;
   image: string;
   imageAlt?: string;
-  badge?: boolean;
-  badgeLabel?: string;
 };
 
 export default function ServiceHero({
   eyebrow, h1, supportingCopy, primaryButton, secondaryButton,
   primaryHref = "#enquire", secondaryHref = "#how-it-works",
-  image, imageAlt = "", badge = false, badgeLabel,
+  image, imageAlt = "",
 }: Props) {
   return (
     <section className="relative overflow-hidden bg-navy text-white min-h-[600px] md:min-h-[660px] flex items-end">
@@ -46,7 +43,6 @@ export default function ServiceHero({
         style={{ background: "linear-gradient(to top, rgba(6,12,28,0.85) 0%, rgba(6,12,28,0) 45%)" }}
       />
       <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-gold via-gold to-gold/40 hidden md:block" />
-      {badge && <StaffBadge label={badgeLabel} />}
 
       <div className="relative mx-auto max-w-content px-6 py-16 md:py-20 w-full">
         <span className="inline-flex items-center gap-2 eyebrow text-navydeep bg-gold rounded-full px-4 py-1.5 mb-5 shadow-lg shadow-black/20">

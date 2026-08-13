@@ -17,8 +17,8 @@ export default function Page() {
       division={division}
       image={images.workforceRecruitment}
       secondaryImage={images.workforceRecruitmentSecondary}
-      offerBody="Active Workforce Recruitment connects organisations with qualified, properly vetted professionals across health, care and workforce sectors — from single hires to ongoing staffing partnerships, handled with the same care as the rest of our services."
-      whoBody="We work with employers who need candidates who are genuinely the right fit, not just available — and with professionals looking for roles that match their skills and values."
+      offerBody="Active Workforce Recruitment connects organisations with qualified, properly vetted professionals across health, care and workforce sectors from single hires to ongoing staffing partnerships, handled with the same care as the rest of our services."
+      whoBody="We work with employers who need candidates who are genuinely the right fit, not just available and with professionals looking for roles that match their skills and values."
       engagementFlow={<EmployerEngagementFlow />}
     />
   );

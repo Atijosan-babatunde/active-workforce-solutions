@@ -2,21 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  ChevronLeft,
-  HeartHandshake,
-  Users,
-  CheckCircle2,
-  Loader2,
-  User,
-  Mail,
-  Phone,
-  MessageSquare,
-  Briefcase,
-} from "lucide-react";
+import { ChevronLeft, HeartHandshake, Users, CheckCircle2, Loader2, User, Mail, Phone, MessageSquare, Briefcase } from "lucide-react";
 import { divisions } from "@/lib/content/divisions";
 import IconBadge from "./IconBadge";
-import { OptionCard, Field, inputClass } from "./wizard/FormControls";
+import { OptionCard, Field, inputClass, isValidEmail, isValidPhone, isValidName, sanitizePhoneInput } from "./wizard/FormControls";
 
 type EnquiryType = "client" | "professional";
 
@@ -103,12 +92,12 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
       if (!answers.division) return setError("Please choose a division to continue.");
     }
     if (currentStepId === "details") {
-      if (!answers.fullName.trim()) return setError("Please tell us your name.");
+      if (!isValidName(answers.fullName)) return setError("Please tell us your name.");
       if (path === "professional" && !answers.role.trim()) return setError("Please tell us the role you're interested in.");
     }
     if (currentStepId === "contact") {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(answers.email)) return setError("Please enter a valid email address.");
-      if (answers.phone.trim().length < 7) return setError("Please enter a valid telephone number.");
+      if (!isValidEmail(answers.email)) return setError("Please enter a valid email address.");
+      if (!isValidPhone(answers.phone)) return setError("Please enter a valid telephone number.");
     }
     if (currentStepId === "experience") {
       if (!answers.experience) return setError("Please select your level of experience.");
@@ -162,11 +151,7 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
           <CheckCircle2 size={28} strokeWidth={2} />
         </span>
         <h3 className="font-display text-2xl text-navy mb-2">Thank you</h3>
-        <p className="text-ink/75 max-w-md mx-auto">
-          {path === "professional"
-            ? "Thanks for your interest in joining Active Workforce Solutions. We'll review your details and be in touch about next steps."
-            : "Your enquiry has been received. A member of our team will be in touch shortly."}
-        </p>
+        <p className="text-ink/75 max-w-md mx-auto">{path === "professional" ? "Thanks for your interest in joining Active Workforce Solutions. We'll review your details and be in touch about next steps." : "Your enquiry has been received. A member of our team will be in touch shortly."}</p>
         <Link href="/" className="inline-block mt-6 text-navy font-semibold hover:text-navy2">
           Back to homepage →
         </Link>
@@ -196,20 +181,12 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
             </h2>
             <p className="text-ink/70 mb-6">Choose the option that best describes you, and we'll guide you through the rest.</p>
             <div className="grid sm:grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => choosePath("client")}
-                className="text-left rounded-card border-2 border-line hover:border-gold bg-sand p-6 transition-colors"
-              >
+              <button type="button" onClick={() => choosePath("client")} className="text-left rounded-card border-2 border-line hover:border-gold bg-sand p-6 transition-colors">
                 <IconBadge icon={HeartHandshake} color="rose" size="lg" />
                 <p className="font-display text-lg text-navy mt-4">I need care or workforce services</p>
                 <p className="text-sm text-muted mt-1.5">Speak to us about consultancy, recovery coordination, training or support.</p>
               </button>
-              <button
-                type="button"
-                onClick={() => choosePath("professional")}
-                className="text-left rounded-card border-2 border-line hover:border-gold bg-sand p-6 transition-colors"
-              >
+              <button type="button" onClick={() => choosePath("professional")} className="text-left rounded-card border-2 border-line hover:border-gold bg-sand p-6 transition-colors">
                 <IconBadge icon={Briefcase} color="gold" size="lg" />
                 <p className="font-display text-lg text-navy mt-4">I'm a professional looking to work with you</p>
                 <p className="text-sm text-muted mt-1.5">Tell us about your experience and the kind of role you're looking for.</p>
@@ -223,17 +200,10 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
             <h2 ref={headingRef} tabIndex={-1} className="font-display text-2xl md:text-3xl text-navy mb-2 outline-none">
               {path === "professional" ? "Which division would you like to work in?" : "Which division is this about?"}
             </h2>
-            <p className="text-ink/70 mb-6">Not sure? Pick the closest match — we'll route your enquiry to the right team.</p>
+            <p className="text-ink/70 mb-6">Not sure? Pick the closest match we'll route your enquiry to the right team.</p>
             <div className="grid sm:grid-cols-2 gap-3">
               {divisions.map((d) => (
-                <OptionCard
-                  key={d.slug}
-                  selected={answers.division === d.slug}
-                  onClick={() => set("division", d.slug)}
-                  title={d.name}
-                  description={d.tagline}
-                  icon={<IconBadge icon={d.icon} color={d.color} size="sm" />}
-                />
+                <OptionCard key={d.slug} selected={answers.division === d.slug} onClick={() => set("division", d.slug)} title={d.name} description={d.tagline} icon={<IconBadge icon={d.icon} color={d.color} size="sm" />} />
               ))}
             </div>
           </>
@@ -246,30 +216,15 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
             </h2>
             <div className="space-y-5">
               <Field label="Full name" icon={<User size={15} />}>
-                <input
-                  className={inputClass}
-                  value={answers.fullName}
-                  onChange={(e) => set("fullName", e.target.value)}
-                  placeholder="Jane Doe"
-                />
+                <input className={inputClass} value={answers.fullName} onChange={(e) => set("fullName", e.target.value)} placeholder="Jane Doe" />
               </Field>
               {path === "client" ? (
                 <Field label="Organisation, if applicable" icon={<Briefcase size={15} />}>
-                  <input
-                    className={inputClass}
-                    value={answers.organisation}
-                    onChange={(e) => set("organisation", e.target.value)}
-                    placeholder="Optional"
-                  />
+                  <input className={inputClass} value={answers.organisation} onChange={(e) => set("organisation", e.target.value)} placeholder="Optional" />
                 </Field>
               ) : (
                 <Field label="Role you're interested in" icon={<Briefcase size={15} />}>
-                  <input
-                    className={inputClass}
-                    value={answers.role}
-                    onChange={(e) => set("role", e.target.value)}
-                    placeholder="e.g. Support Worker, Registered Nurse"
-                  />
+                  <input className={inputClass} value={answers.role} onChange={(e) => set("role", e.target.value)} placeholder="e.g. Support Worker, Registered Nurse" />
                 </Field>
               )}
             </div>
@@ -283,22 +238,10 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
             </h2>
             <div className="space-y-5">
               <Field label="Email address" icon={<Mail size={15} />}>
-                <input
-                  type="email"
-                  className={inputClass}
-                  value={answers.email}
-                  onChange={(e) => set("email", e.target.value)}
-                  placeholder="you@example.com"
-                />
+                <input type="email" className={inputClass} value={answers.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" />
               </Field>
               <Field label="Telephone number" icon={<Phone size={15} />}>
-                <input
-                  type="tel"
-                  className={inputClass}
-                  value={answers.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                  placeholder="07XXX XXXXXX"
-                />
+                <input type="tel" inputMode="tel" className={inputClass} value={answers.phone} onChange={(e) => set("phone", sanitizePhoneInput(e.target.value))} placeholder="07XXX XXXXXX" />
               </Field>
             </div>
           </>
@@ -323,13 +266,7 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
               {path === "professional" ? "Tell us briefly about your experience" : "Tell us briefly about your enquiry"}
             </h2>
             <Field label={path === "professional" ? "Relevant experience" : "Brief description"} icon={<MessageSquare size={15} />}>
-              <textarea
-                rows={5}
-                className={inputClass}
-                value={answers.description}
-                onChange={(e) => set("description", e.target.value)}
-                placeholder={path === "professional" ? "Qualifications, past roles, availability…" : "What kind of support are you looking for?"}
-              />
+              <textarea rows={5} className={inputClass} value={answers.description} onChange={(e) => set("description", e.target.value)} placeholder={path === "professional" ? "Qualifications, past roles, availability…" : "What kind of support are you looking for?"} />
             </Field>
           </>
         )}
@@ -357,49 +294,27 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
               ))}
             </dl>
             <label className="flex items-start gap-3 text-sm text-ink/80 mb-2">
-              <input
-                type="checkbox"
-                checked={answers.consent}
-                onChange={(e) => set("consent", e.target.checked)}
-                className="mt-1 w-4 h-4 accent-gold"
-              />
-              I consent to Active Workforce Solutions contacting me about this {path === "professional" ? "application" : "enquiry"} and processing my data in line with the privacy notice.
+              <input type="checkbox" checked={answers.consent} onChange={(e) => set("consent", e.target.checked)} className="mt-1 w-4 h-4 accent-gold" />I consent to Active Workforce Solutions contacting me about this {path === "professional" ? "application" : "enquiry"} and processing my data in line with the privacy notice.
             </label>
           </>
         )}
 
         {error && <p className="mt-4 text-sm text-rose font-medium">{error}</p>}
-        {status === "error" && (
-          <p className="mt-4 text-sm text-rose font-medium">Something went wrong sending your details. Please try again.</p>
-        )}
+        {status === "error" && <p className="mt-4 text-sm text-rose font-medium">Something went wrong sending your details. Please try again.</p>}
 
         {path && (
           <div className="mt-8 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={goBack}
-              disabled={stepIndex === 0 && (!!forcePath || !!initialDivision)}
-              className="inline-flex items-center gap-1 rounded-full border border-line px-5 py-2.5 text-sm font-medium text-navy hover:bg-sand transition-colors disabled:opacity-0 disabled:pointer-events-none"
-            >
+            <button type="button" onClick={goBack} disabled={stepIndex === 0 && (!!forcePath || !!initialDivision)} className="inline-flex items-center gap-1 rounded-full border border-line px-5 py-2.5 text-sm font-medium text-navy hover:bg-sand transition-colors disabled:opacity-0 disabled:pointer-events-none">
               <ChevronLeft size={16} /> Back
             </button>
 
             {currentStepId === "review" ? (
-              <button
-                type="button"
-                onClick={submit}
-                disabled={status === "sending"}
-                className="inline-flex items-center gap-2 rounded-full bg-navy text-white font-medium px-6 py-2.5 hover:bg-navy2 transition-colors disabled:opacity-70"
-              >
+              <button type="button" onClick={submit} disabled={status === "sending"} className="inline-flex items-center gap-2 rounded-full bg-navy text-white font-medium px-6 py-2.5 hover:bg-navy2 transition-colors disabled:opacity-70">
                 {status === "sending" && <Loader2 size={16} className="animate-spin" />}
                 {status === "sending" ? "Sending…" : "Send"}
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={validateAndAdvance}
-                className="inline-flex items-center gap-1 rounded-full bg-navy text-white font-medium px-6 py-2.5 hover:bg-navy2 transition-colors"
-              >
+              <button type="button" onClick={validateAndAdvance} className="inline-flex items-center gap-1 rounded-full bg-navy text-white font-medium px-6 py-2.5 hover:bg-navy2 transition-colors">
                 Continue
               </button>
             )}

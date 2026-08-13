@@ -21,8 +21,7 @@ export const divisions: Division[] = [
     slug: "active-recovery-concierge",
     name: "Active Recovery Concierge",
     tagline: "Recovery, carefully coordinated around you",
-    summary:
-      "Discreet, personalised recovery planning and non-clinical coordination for individuals and families following surgery, hospital treatment or illness.",
+    summary: "Discreet, personalised recovery planning and non clinical coordination for individuals and families following surgery, hospital treatment or illness.",
     hasFullBlueprint: true,
     icon: HeartHandshake,
     color: "rose",
@@ -31,8 +30,7 @@ export const divisions: Division[] = [
     slug: "active-quality-academy",
     name: "Active Quality Academy",
     tagline: "Practical training built around real standards",
-    summary:
-      "Education and workforce development that raises quality and compliance standards across health, care and support organisations.",
+    summary: "Education and workforce development that raises quality and compliance standards across health, care and support organisations.",
     hasFullBlueprint: false,
     icon: GraduationCap,
     color: "sky",
@@ -41,8 +39,7 @@ export const divisions: Division[] = [
     slug: "active-provider-solutions",
     name: "Active Provider Solutions",
     tagline: "Consultancy for provider organisations",
-    summary:
-      "Practical consultancy support for care and support providers navigating growth, compliance and operational challenges.",
+    summary: "Practical consultancy support for care and support providers navigating growth, compliance and operational challenges.",
     hasFullBlueprint: false,
     icon: Briefcase,
     color: "navy",
@@ -51,8 +48,7 @@ export const divisions: Division[] = [
     slug: "active-accommodation-solutions",
     name: "Active Accommodation Solutions",
     tagline: "Suitable accommodation, sourced and coordinated",
-    summary:
-      "Sourcing and coordination of suitable accommodation arrangements for individuals and organisations with specific requirements.",
+    summary: "Sourcing and coordination of suitable accommodation arrangements for individuals and organisations with specific requirements.",
     hasFullBlueprint: false,
     icon: Building2,
     color: "sage",
@@ -61,8 +57,7 @@ export const divisions: Division[] = [
     slug: "active-workforce-recruitment",
     name: "Active Workforce Recruitment",
     tagline: "Specialist workforce, properly matched",
-    summary:
-      "Recruitment services connecting organisations with qualified professionals across health, care and workforce sectors.",
+    summary: "Recruitment services connecting organisations with qualified professionals across health, care and workforce sectors.",
     hasFullBlueprint: false,
     icon: Users,
     color: "gold",
@@ -71,8 +66,7 @@ export const divisions: Division[] = [
     slug: "active-facilities",
     name: "Active Facilities",
     tagline: "Facilities support that keeps operations running",
-    summary:
-      "Facilities management and support services for organisations that need dependable, well-coordinated premises support.",
+    summary: "Facilities management and support services for organisations that need dependable, well coordinated premises support.",
     hasFullBlueprint: false,
     icon: Wrench,
     color: "silver",

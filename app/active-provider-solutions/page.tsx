@@ -16,7 +16,7 @@ export default function Page() {
       division={division}
       image={images.providerSolutions}
       secondaryImage={images.providerSolutionsSecondary}
-      offerBody="Active Provider Solutions gives care and support provider organisations practical, experienced consultancy — covering compliance readiness, operational improvement, growth planning and the day-to-day challenges of running a regulated service."
+      offerBody="Active Provider Solutions gives care and support provider organisations practical, experienced consultancy covering compliance readiness, operational improvement, growth planning and the day-to-day challenges of running a regulated service."
       whoBody="We work alongside provider leadership teams, registered managers and boards who want an experienced outside perspective they can act on, not just a report on a shelf."
     />
   );

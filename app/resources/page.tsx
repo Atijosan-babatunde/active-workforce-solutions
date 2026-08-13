@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Download } from "lucide-react";
 import ServiceHero from "@/components/ServiceHero";
 import { recoveryConciergePages } from "@/lib/content/recovery-concierge";
 import { images } from "@/lib/content/images";
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 const recoveryResources = recoveryConciergePages.find((p) => p.slug === "resources-faqs");
 
 export default function Page() {
-  const resources = recoveryResources?.sections.find((s) => s.list)?.list ?? [];
+  const downloads = recoveryResources?.sections.find((s) => s.downloads)?.downloads ?? [];
   return (
     <>
       <ServiceHero
@@ -27,8 +28,17 @@ export default function Page() {
       <div className="mx-auto max-w-content px-6 py-16">
         <h2 className="font-display text-2xl text-navy mb-6">Active Recovery Concierge resources</h2>
         <ul className="grid sm:grid-cols-2 gap-4 max-w-3xl">
-          {resources.map((r) => (
-            <li key={r} className="bg-white border border-line rounded-card p-5 text-ink/80">{r}</li>
+          {downloads.map((d) => (
+            <li key={d.href}>
+              <a
+                href={d.href}
+                download
+                className="flex items-center gap-3 h-full bg-white border border-line rounded-card p-5 text-ink/80 hover:border-gold hover:bg-goldtint/40 transition-colors"
+              >
+                <Download size={18} className="text-gold shrink-0" strokeWidth={2} />
+                <span className="text-sm font-medium">{d.label}</span>
+              </a>
+            </li>
           ))}
         </ul>
         <p className="text-sm text-ink/60 mt-6">

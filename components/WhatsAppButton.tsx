@@ -1,4 +1,4 @@
-const PHONE = "447396721275"; // +44 7396 721275, in wa.me format (no + or spaces)
+const PHONE = "447943553777"; // +44 7943 553777, in wa.me format (no + or spaces)
 const MESSAGE = "Hi, I'd like to speak to someone at Active Workforce Solutions.";
 
 export default function WhatsAppButton() {

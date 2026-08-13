@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { User, Mail, Phone, Calendar, MessageSquare, ListChecks, Type, CheckCircle2, AlertTriangle } from "lucide-react";
+import { isValidEmail, isValidPhone, sanitizePhoneInput } from "./wizard/FormControls";
 
 type Props = {
   fields: string[];
@@ -47,6 +48,7 @@ function fieldIcon(type: string) {
 
 export default function EnquiryForm({ fields, sourcePage, campaign }: Props) {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
   const config = fields.length > 0 ? fields.map(toFieldConfig) : [
     { id: "full-name", label: "Full name", type: "text" as const },
     { id: "email", label: "Email address", type: "email" as const },
@@ -55,10 +57,22 @@ export default function EnquiryForm({ fields, sourcePage, campaign }: Props) {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setStatus("sending");
+    setError(null);
     const formData = new FormData(e.currentTarget);
     const payload = Object.fromEntries(formData.entries());
 
+    // Belt-and-braces on top of the native `required`/`type` constraints below —
+    // catches things native validation can miss, like a value that's only whitespace.
+    for (const f of config) {
+      const raw = payload[f.id];
+      const value = typeof raw === "string" ? raw.trim() : "";
+      if (f.type === "checkbox") continue;
+      if (!value) return setError(`Please fill in "${f.label}".`);
+      if (f.type === "email" && !isValidEmail(value)) return setError("Please enter a valid email address.");
+      if (f.type === "tel" && !isValidPhone(value)) return setError("Please enter a valid telephone number.");
+    }
+
+    setStatus("sending");
     try {
       const res = await fetch("/api/enquiry", {
         method: "POST",
@@ -90,7 +104,7 @@ export default function EnquiryForm({ fields, sourcePage, campaign }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+    <form onSubmit={handleSubmit} className="space-y-5">
       <p className="flex items-start gap-2 text-xs text-muted bg-brasstint border border-brass/30 rounded-card px-4 py-3">
         <AlertTriangle size={15} className="shrink-0 mt-0.5 text-golddark" strokeWidth={2} />
         This form is not for emergencies or urgent medical advice. In an emergency,
@@ -106,9 +120,9 @@ export default function EnquiryForm({ fields, sourcePage, campaign }: Props) {
             {f.label}
           </label>
           {f.type === "textarea" ? (
-            <textarea id={f.id} name={f.id} rows={4} className="w-full rounded-md border border-line px-3.5 py-2.5 bg-white focus-visible:border-teal" />
+            <textarea id={f.id} name={f.id} rows={4} required minLength={10} className="w-full rounded-md border border-line px-3.5 py-2.5 bg-white focus-visible:border-teal" />
           ) : f.type === "select" ? (
-            <select id={f.id} name={f.id} className="w-full rounded-md border border-line px-3.5 py-2.5 bg-white focus-visible:border-teal">
+            <select id={f.id} name={f.id} required className="w-full rounded-md border border-line px-3.5 py-2.5 bg-white focus-visible:border-teal">
               <option value="">Select an option</option>
               {"options" in f && f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -117,8 +131,20 @@ export default function EnquiryForm({ fields, sourcePage, campaign }: Props) {
               <input id={f.id} name={f.id} type="checkbox" required className="mt-1" />
               I consent to the privacy notice and understand how my information will be used.
             </label>
+          ) : f.type === "tel" ? (
+            <input
+              id={f.id}
+              name={f.id}
+              type="tel"
+              inputMode="tel"
+              required
+              onInput={(e) => {
+                e.currentTarget.value = sanitizePhoneInput(e.currentTarget.value);
+              }}
+              className="w-full rounded-md border border-line px-3.5 py-2.5 bg-white focus-visible:border-teal"
+            />
           ) : (
-            <input id={f.id} name={f.id} type={f.type} className="w-full rounded-md border border-line px-3.5 py-2.5 bg-white focus-visible:border-teal" />
+            <input id={f.id} name={f.id} type={f.type} required className="w-full rounded-md border border-line px-3.5 py-2.5 bg-white focus-visible:border-teal" />
           )}
         </div>
         );
@@ -132,6 +158,11 @@ export default function EnquiryForm({ fields, sourcePage, campaign }: Props) {
         {status === "sending" ? "Sending…" : "Submit Enquiry"}
       </button>
 
+      {error && (
+        <p role="alert" className="text-sm text-red-700">
+          {error}
+        </p>
+      )}
       {status === "error" && (
         <p role="alert" className="text-sm text-red-700">
           Something went wrong sending your enquiry. Please try again, or email us directly.

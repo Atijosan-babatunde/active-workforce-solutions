@@ -59,3 +59,27 @@ export function Field({
 
 export const inputClass =
   "w-full rounded-md border border-line px-3.5 py-2.5 text-ink placeholder:text-muted/70 focus:outline-none focus:ring-2 focus:ring-gold/60 focus:border-gold";
+
+// Shared validation — every form on the site should use these rather than
+// rolling its own regex, so a fix (like the phone field accepting letters)
+// only has to happen in one place.
+
+export function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+// Strips anything that isn't a digit, space, or the handful of characters
+// real phone numbers use (+, -, parentheses) — applied on every keystroke
+// so letters can't be typed into a phone field in the first place.
+export function sanitizePhoneInput(value: string) {
+  return value.replace(/[^0-9+()\s-]/g, "");
+}
+
+export function isValidPhone(value: string) {
+  const digitCount = value.replace(/\D/g, "").length;
+  return digitCount >= 7 && digitCount <= 15;
+}
+
+export function isValidName(value: string) {
+  return value.trim().length >= 2 && /[a-zA-Z]/.test(value);
+}

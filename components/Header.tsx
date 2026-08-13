@@ -2,15 +2,40 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Briefcase, UserPlus } from "lucide-react";
 import { divisions } from "@/lib/content/divisions";
 import IconBadge from "./IconBadge";
 
 const otherDivisions = divisions.filter((d) => d.slug !== "active-workforce-recruitment");
 
+type MenuKey = "what-we-do" | "recruitment";
+
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!openMenu) return;
+
+    function handleOutsideOrEscape(e: MouseEvent | KeyboardEvent) {
+      if (e instanceof KeyboardEvent && e.key === "Escape") {
+        setOpenMenu(null);
+        return;
+      }
+      if (e instanceof MouseEvent && navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideOrEscape);
+    document.addEventListener("keydown", handleOutsideOrEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideOrEscape);
+      document.removeEventListener("keydown", handleOutsideOrEscape);
+    };
+  }, [openMenu]);
 
   return (
     <header className="sticky top-0 z-50 bg-sand/95 backdrop-blur border-b border-line">
@@ -19,47 +44,81 @@ export default function Header() {
           <Image src="/logo.png" alt="Active Workforce Solutions" width={220} height={46} className="h-9 w-auto" priority />
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-8 text-sm" aria-label="Primary">
+        <nav ref={navRef} className="hidden lg:flex items-center gap-8 text-sm" aria-label="Primary">
           <Link href="/about" className="text-ink hover:text-teal transition-colors">
             About Us
           </Link>
-          <div className="relative group">
-            <button className="flex items-center gap-1 text-ink hover:text-teal transition-colors" aria-haspopup="true">
-              Divisions
+          <div
+            className="relative"
+            onMouseEnter={() => setOpenMenu("what-we-do")}
+            onMouseLeave={() => setOpenMenu((m) => (m === "what-we-do" ? null : m))}
+          >
+            <button
+              className="flex items-center gap-1 text-ink hover:text-teal transition-colors"
+              aria-haspopup="true"
+              aria-expanded={openMenu === "what-we-do"}
+              onClick={() => setOpenMenu((m) => (m === "what-we-do" ? null : "what-we-do"))}
+            >
+              What We Do
             </button>
-            <div className="absolute left-0 top-full pt-3 hidden group-hover:block group-focus-within:block">
-              <ul className="w-80 bg-white border border-line rounded-card shadow-lg p-2">
-                {otherDivisions.map((d) => (
-                  <li key={d.slug}>
-                    <Link href={`/${d.slug}`} className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-sand text-ink">
-                      <IconBadge icon={d.icon} color={d.color} size="sm" />
-                      {d.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {openMenu === "what-we-do" && (
+              <div className="absolute left-0 top-full pt-3">
+                <ul className="w-80 bg-white border border-line rounded-card shadow-lg p-2">
+                  {otherDivisions.map((d) => (
+                    <li key={d.slug}>
+                      <Link
+                        href={`/${d.slug}`}
+                        onClick={() => setOpenMenu(null)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-sand text-ink"
+                      >
+                        <IconBadge icon={d.icon} color={d.color} size="sm" />
+                        {d.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-          <div className="relative group">
-            <button className="flex items-center gap-1 text-ink hover:text-teal transition-colors" aria-haspopup="true">
+          <div
+            className="relative"
+            onMouseEnter={() => setOpenMenu("recruitment")}
+            onMouseLeave={() => setOpenMenu((m) => (m === "recruitment" ? null : m))}
+          >
+            <button
+              className="flex items-center gap-1 text-ink hover:text-teal transition-colors"
+              aria-haspopup="true"
+              aria-expanded={openMenu === "recruitment"}
+              onClick={() => setOpenMenu((m) => (m === "recruitment" ? null : "recruitment"))}
+            >
               Active Workforce Recruitment
             </button>
-            <div className="absolute left-0 top-full pt-3 hidden group-hover:block group-focus-within:block">
-              <ul className="w-72 bg-white border border-line rounded-card shadow-lg p-2">
-                <li>
-                  <Link href="/active-workforce-recruitment/perm-temp" className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-sand text-ink">
-                    <IconBadge icon={Briefcase} color="gold" size="sm" />
-                    Perm &amp; Temp Recruitment
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/active-workforce-recruitment" className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-sand text-ink">
-                    <IconBadge icon={UserPlus} color="gold" size="sm" />
-                    Register with Us
-                  </Link>
-                </li>
-              </ul>
-            </div>
+            {openMenu === "recruitment" && (
+              <div className="absolute left-0 top-full pt-3">
+                <ul className="w-72 bg-white border border-line rounded-card shadow-lg p-2">
+                  <li>
+                    <Link
+                      href="/active-workforce-recruitment/perm-temp"
+                      onClick={() => setOpenMenu(null)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-sand text-ink"
+                    >
+                      <IconBadge icon={Briefcase} color="gold" size="sm" />
+                      Perm &amp; Temp Recruitment
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/active-workforce-recruitment"
+                      onClick={() => setOpenMenu(null)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-sand text-ink"
+                    >
+                      <IconBadge icon={UserPlus} color="gold" size="sm" />
+                      Register with Us
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+            )}
           </div>
           <Link href="/resources" className="text-ink hover:text-teal transition-colors">
             Resources

@@ -14,7 +14,7 @@ export default function Page() {
       <ServiceHero
         eyebrow="Active Workforce Recruitment"
         h1="Perm & Temp Recruitment"
-        supportingCopy="Tell us about the role you're hiring for — permanent or temporary — and a member of our recruitment team will be in touch to discuss how we can help."
+        supportingCopy="Tell us about the role you're hiring for permanent or temporary and a member of our recruitment team will be in touch to discuss how we can help."
         primaryButton="Submit Your Enquiry"
         secondaryButton="Looking to register instead?"
         primaryHref="#enquire"

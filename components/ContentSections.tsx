@@ -1,4 +1,4 @@
-import { FileCheck2 } from "lucide-react";
+import { FileCheck2, Download } from "lucide-react";
 import type { Section } from "@/lib/content/recovery-concierge";
 
 export default function ContentSections({ sections }: { sections: Section[] }) {
@@ -18,6 +18,22 @@ export default function ContentSections({ sections }: { sections: Section[] }) {
                 <li key={item} className="flex gap-2.5 text-ink/75 leading-relaxed">
                   <span className="text-gold mt-0.5 shrink-0" aria-hidden="true">✓</span>
                   <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {s.downloads && (
+            <ul className="space-y-2.5 mt-2">
+              {s.downloads.map((d) => (
+                <li key={d.href}>
+                  <a
+                    href={d.href}
+                    download
+                    className="flex items-center gap-3 rounded-md border border-line px-4 py-3 text-ink hover:border-gold hover:bg-goldtint/40 transition-colors"
+                  >
+                    <Download size={16} className="text-gold shrink-0" strokeWidth={2} />
+                    <span className="text-sm font-medium">{d.label}</span>
+                  </a>
                 </li>
               ))}
             </ul>

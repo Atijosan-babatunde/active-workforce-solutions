@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { User, Building2, Mail, Phone, MapPin, MessageSquare, CheckCircle2, Loader2 } from "lucide-react";
-import { Field, inputClass } from "./wizard/FormControls";
+import { Field, inputClass, isValidEmail, isValidPhone, isValidName, sanitizePhoneInput } from "./wizard/FormControls";
 
 const SPECIALISM_OPTIONS = ["Support Worker", "Registered Nurse", "Care Assistant", "Domiciliary Carer", "Other"];
 
@@ -41,10 +41,10 @@ export default function PermTempRecruitmentForm({ sourcePage = "active-workforce
     e.preventDefault();
     setError(null);
 
-    if (!answers.fullName.trim()) return setError("Please tell us your name.");
+    if (!isValidName(answers.fullName)) return setError("Please tell us your name.");
     if (!answers.organisation.trim()) return setError("Please tell us your organisation's name.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(answers.email)) return setError("Please enter a valid email address.");
-    if (answers.phone.trim().length < 7) return setError("Please enter a valid telephone number.");
+    if (!isValidEmail(answers.email)) return setError("Please enter a valid email address.");
+    if (!isValidPhone(answers.phone)) return setError("Please enter a valid telephone number.");
     if (!answers.location.trim()) return setError("Please tell us where the role is based.");
     if (!answers.description.trim() || answers.description.trim().length < 10) {
       return setError("Please tell us a little about the role(s) you're hiring for.");
@@ -115,9 +115,10 @@ export default function PermTempRecruitmentForm({ sourcePage = "active-workforce
       <Field label="Telephone" icon={<Phone size={15} />}>
         <input
           type="tel"
+          inputMode="tel"
           className={inputClass}
           value={answers.phone}
-          onChange={(e) => set("phone", e.target.value)}
+          onChange={(e) => set("phone", sanitizePhoneInput(e.target.value))}
           placeholder="07XXX XXXXXX"
         />
       </Field>
