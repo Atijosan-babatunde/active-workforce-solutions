@@ -50,6 +50,11 @@ export default function Footer() {
               </Link>
             </li>
             <li>
+              <Link href="/blog" className="hover:text-white transition-colors">
+                Blog
+              </Link>
+            </li>
+            <li>
               <Link href="/contact" className="hover:text-white transition-colors">
                 Contact
               </Link>
@@ -91,7 +96,7 @@ export default function Footer() {
 
       <div className="border-t border-white/10">
         <div className="mx-auto max-w-content px-6 py-6 flex flex-col md:flex-row justify-between gap-3 text-xs text-white/60">
-          <p>© {new Date().getFullYear()} Active Workforce Solutions Ltd. Company number [TO BE CONFIRMED]. Registered office: [TO BE CONFIRMED].</p>
+          <p>© {new Date().getFullYear()} Active Workforce Solutions Ltd. Company number 14242200.</p>
           {/* <p>This website provides non-clinical information. It is not a substitute for advice from a regulated professional.</p> */}
         </div>
       </div>

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { User, Building2, Mail, Phone, MapPin, MessageSquare, CheckCircle2, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { User, Building2, Mail, Phone, MapPin, MessageSquare, Lock, CheckCircle2, Loader2 } from "lucide-react";
 import { Field, inputClass, isValidEmail, isValidPhone, isValidName, sanitizePhoneInput } from "./wizard/FormControls";
+import { signup, getCurrentUser, createServiceRequest, ApiError } from "@/lib/api/client";
 
 const SPECIALISM_OPTIONS = ["Support Worker", "Registered Nurse", "Care Assistant", "Domiciliary Carer", "Other"];
 
@@ -11,6 +13,8 @@ type Answers = {
   organisation: string;
   email: string;
   phone: string;
+  password: string;
+  confirmPassword: string;
   specialism: string;
   location: string;
   description: string;
@@ -22,6 +26,8 @@ const emptyAnswers: Answers = {
   organisation: "",
   email: "",
   phone: "",
+  password: "",
+  confirmPassword: "",
   specialism: SPECIALISM_OPTIONS[0],
   location: "",
   description: "",
@@ -32,6 +38,11 @@ export default function PermTempRecruitmentForm({ sourcePage = "active-workforce
   const [answers, setAnswers] = useState<Answers>(emptyAnswers);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCurrentUser().then((user) => setLoggedInEmail(user?.email ?? null));
+  }, []);
 
   function set<K extends keyof Answers>(key: K, value: Answers[K]) {
     setAnswers((a) => ({ ...a, [key]: value }));
@@ -43,32 +54,65 @@ export default function PermTempRecruitmentForm({ sourcePage = "active-workforce
 
     if (!isValidName(answers.fullName)) return setError("Please tell us your name.");
     if (!answers.organisation.trim()) return setError("Please tell us your organisation's name.");
-    if (!isValidEmail(answers.email)) return setError("Please enter a valid email address.");
+    if (!loggedInEmail && !isValidEmail(answers.email)) return setError("Please enter a valid email address.");
     if (!isValidPhone(answers.phone)) return setError("Please enter a valid telephone number.");
     if (!answers.location.trim()) return setError("Please tell us where the role is based.");
     if (!answers.description.trim() || answers.description.trim().length < 10) {
       return setError("Please tell us a little about the role(s) you're hiring for.");
     }
+    if (!loggedInEmail) {
+      if (answers.password.length < 6) return setError("Please choose a password of at least 6 characters.");
+      if (answers.password !== answers.confirmPassword) return setError("Passwords don't match.");
+    }
     if (!answers.consent) return setError("Please confirm you're happy for us to be in touch.");
 
     setStatus("sending");
+
+    // Always send to the CRM webhook pipeline — best-effort, independent of
+    // the account/service-request below, so a hiccup in one doesn't lose the
+    // enquiry or block account creation.
+    fetch("/api/enquiry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enquiryType: "perm-temp-recruitment",
+        sourcePage,
+        fullName: answers.fullName,
+        organisation: answers.organisation,
+        email: loggedInEmail ?? answers.email,
+        phone: answers.phone,
+        specialism: answers.specialism,
+        location: answers.location,
+        description: answers.description,
+      }),
+    }).catch(() => {});
+
     try {
-      const res = await fetch("/api/enquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enquiryType: "perm-temp-recruitment",
-          sourcePage,
-          fullName: answers.fullName,
+      if (!loggedInEmail) {
+        try {
+          await signup(answers.email, answers.password);
+        } catch (err) {
+          setStatus("idle");
+          if (err instanceof ApiError && err.status === 409) {
+            return setError("You already have an account with this email — please log in to submit a new request.");
+          }
+          return setError(err instanceof ApiError ? err.message : "Something went wrong creating your account.");
+        }
+      }
+
+      await createServiceRequest({
+        division: "active-workforce-recruitment",
+        source: "perm-temp-recruitment",
+        description: answers.description,
+        details: {
           organisation: answers.organisation,
-          email: answers.email,
+          fullName: answers.fullName,
           phone: answers.phone,
           specialism: answers.specialism,
           location: answers.location,
-          description: answers.description,
-        }),
+        },
       });
-      if (!res.ok) throw new Error("Request failed");
+
       setStatus("sent");
     } catch {
       setStatus("error");
@@ -86,6 +130,9 @@ export default function PermTempRecruitmentForm({ sourcePage = "active-workforce
           Your enquiry has been received. A member of our recruitment team will be in touch shortly to discuss your
           Perm &amp; Temp hiring needs.
         </p>
+        <Link href="/portal" className="inline-block mt-6 text-navy font-semibold hover:text-navy2">
+          Track the status of your request →
+        </Link>
       </div>
     );
   }
@@ -103,15 +150,21 @@ export default function PermTempRecruitmentForm({ sourcePage = "active-workforce
           placeholder="Your organisation's name"
         />
       </Field>
-      <Field label="Email address" icon={<Mail size={15} />}>
-        <input
-          type="email"
-          className={inputClass}
-          value={answers.email}
-          onChange={(e) => set("email", e.target.value)}
-          placeholder="you@example.com"
-        />
-      </Field>
+      {loggedInEmail ? (
+        <Field label="Email address" icon={<Mail size={15} />}>
+          <input className={inputClass} value={loggedInEmail} disabled />
+        </Field>
+      ) : (
+        <Field label="Email address" icon={<Mail size={15} />}>
+          <input
+            type="email"
+            className={inputClass}
+            value={answers.email}
+            onChange={(e) => set("email", e.target.value)}
+            placeholder="you@example.com"
+          />
+        </Field>
+      )}
       <Field label="Telephone" icon={<Phone size={15} />}>
         <input
           type="tel"
@@ -148,6 +201,18 @@ export default function PermTempRecruitmentForm({ sourcePage = "active-workforce
           placeholder="Shift pattern, number of roles, start date, qualifications…"
         />
       </Field>
+
+      {!loggedInEmail && (
+        <>
+          <Field label="Choose a password" icon={<Lock size={15} />}>
+            <input type="password" className={inputClass} value={answers.password} onChange={(e) => set("password", e.target.value)} placeholder="At least 6 characters" />
+          </Field>
+          <Field label="Confirm password" icon={<Lock size={15} />}>
+            <input type="password" className={inputClass} value={answers.confirmPassword} onChange={(e) => set("confirmPassword", e.target.value)} placeholder="Re-enter your password" />
+          </Field>
+          <p className="text-xs text-muted">We'll use this to create your account so you can log back in later and see the status of this request.</p>
+        </>
+      )}
 
       <p className="text-sm text-muted bg-sand rounded-md px-4 py-3">
         Have a job description ready? Once you submit this enquiry, a member of our recruitment team will follow up

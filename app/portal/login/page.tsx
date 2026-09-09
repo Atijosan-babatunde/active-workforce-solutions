@@ -7,11 +7,10 @@ import { Mail, Lock, Loader2 } from "lucide-react";
 import ServiceHero from "@/components/ServiceHero";
 import { Field, inputClass } from "@/components/wizard/FormControls";
 import { images } from "@/lib/content/images";
-import { createClient } from "@/lib/supabase/client";
+import { login, ApiError } from "@/lib/api/client";
 
 export default function PortalLoginPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,25 +18,16 @@ export default function PortalLoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!supabase) return;
     setError(null);
     setStatus("sending");
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) {
+    try {
+      await login(email, password);
+    } catch (err) {
       setStatus("idle");
-      return setError("Incorrect email or password. Please try again.");
+      return setError(err instanceof ApiError ? err.message : "Incorrect email or password. Please try again.");
     }
     router.push("/portal");
     router.refresh();
-  }
-
-  if (!supabase) {
-    return (
-      <div className="mx-auto max-w-content px-6 py-20 text-center">
-        <h1 className="font-display text-2xl text-navy mb-2">Client Portal Coming Soon</h1>
-        <p className="text-ink/70">This isn&apos;t set up yet — check back soon.</p>
-      </div>
-    );
   }
 
   return (
@@ -45,11 +35,11 @@ export default function PortalLoginPage() {
       <ServiceHero
         eyebrow="Client Portal"
         h1="Log In to Your Account"
-        supportingCopy="Check the status of the workforce requests you've submitted with us."
+        supportingCopy="Check the status of the service requests you've submitted with us, whichever division they're with."
         primaryButton="Log In"
         secondaryButton="Submit a New Request"
         primaryHref="#login"
-        secondaryHref="/active-workforce-recruitment"
+        secondaryHref="/contact"
         image={images.workforceRecruitment}
       />
       <div id="login" className="mx-auto max-w-content px-6 py-16 md:py-20">
@@ -88,7 +78,7 @@ export default function PortalLoginPage() {
           </button>
           <p className="text-center text-sm text-ink/60">
             Don&apos;t have an account yet?{" "}
-            <Link href="/active-workforce-recruitment#get-started" className="text-navy font-semibold hover:underline">
+            <Link href="/contact" className="text-navy font-semibold hover:underline">
               Submit a request to get started
             </Link>
           </p>

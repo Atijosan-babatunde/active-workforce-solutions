@@ -46,53 +46,47 @@ can be tested end-to-end before the CRM is chosen.
 
 ## Client accounts & portal
 
-Active Workforce Recruitment's "Get Started" flow (`components/EmployerEngagementFlow.tsx`)
-creates a real account and request record via [Supabase](https://supabase.com) (Postgres +
-built-in email/password auth), so an employer can log back in at `/portal/login` and see the
-status of what they submitted at `/portal`.
+Any client-path enquiry — the division wizard on `/contact` (`components/EnquiryWizard.tsx`),
+Active Workforce Recruitment's "Get Started" flow (`components/EmployerEngagementFlow.tsx`), and
+the Perm & Temp Recruitment form (`components/PermTempRecruitmentForm.tsx`) — can optionally
+create a real account and request record via the standalone API in `server/` (Express + Prisma +
+PostgreSQL, with its own email/password auth), so the client can log back in at `/portal/login`
+and see the status of what they submitted at `/portal`, whichever of the six divisions it was for.
+The "professional" (careers) path never creates an account — that's a job application, not a
+trackable service request.
 
 **One-time setup:**
-1. Create a free project at supabase.com.
-2. In the SQL editor, run:
-   ```sql
-   create table employer_requests (
-     id uuid primary key default gen_random_uuid(),
-     user_id uuid references auth.users(id) not null,
-     postcode text,
-     role_type text,
-     number_needed text,
-     urgency text,
-     driver_required boolean default false,
-     preferences text,
-     organisation text,
-     contact_name text,
-     phone text,
-     description text,
-     status text not null default 'submitted', -- submitted | being_matched | candidates_proposed | filled
-     created_at timestamptz not null default now()
-   );
+1. Get a PostgreSQL connection string — any host works: a free instance on
+   [Neon](https://neon.tech) or [Railway](https://railway.app), Supabase's free Postgres used as a
+   plain database, or a local `postgres` (e.g. via Docker).
+2. In `server/`, copy `.env.example` to `.env` and fill in `DATABASE_URL`, plus generate
+   `JWT_SECRET` and `ADMIN_API_KEY` (e.g. `openssl rand -base64 48`). Leave `FRONTEND_ORIGIN` as
+   `http://localhost:3000` for local dev.
+3. `cd server && npm install && npm run prisma:migrate` — creates the `User` and `ServiceRequest`
+   tables from `server/prisma/schema.prisma`.
+4. `npm run dev` in `server/` (defaults to `http://localhost:4000`), and separately `npm run dev`
+   at the repo root for the Next.js app. Set `NEXT_PUBLIC_API_URL=http://localhost:4000` in the
+   root `.env.local` (see `.env.example`) so the frontend knows where to send requests.
 
-   alter table employer_requests enable row level security;
+**API docs:** every endpoint is documented at `<api-url>/docs` (Swagger UI, e.g.
+`http://localhost:4000/docs` locally) — request/response shapes, which are auth-protected, and a
+"Try it out" button that works directly against a running server.
 
-   create policy "Users can view their own requests"
-     on employer_requests for select using (auth.uid() = user_id);
+In production, `server/` deploys as its own Node service (Railway/Render/Fly/a VPS — anywhere Node
+runs), with `NODE_ENV=production`, a real `FRONTEND_ORIGIN` (the deployed site's exact origin —
+required for the auth cookie to work cross-domain), and `NEXT_PUBLIC_API_URL` on the Next.js side
+pointed at that service's URL.
 
-   create policy "Users can insert their own requests"
-     on employer_requests for insert with check (auth.uid() = user_id);
-   ```
-3. In Authentication settings, disable "Confirm email" — this keeps sign-up a single step (no
-   pending-confirmation state to build). Re-enable later if a real verification email flow is wanted.
-4. Copy the Project URL and anon public key into `.env.local` / Vercel project env vars as
-   `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (see `.env.example`).
+**Updating a request's status:** there's still no admin UI — call
+`PATCH <api-url>/admin/requests/:id/status` with header `Authorization: Bearer <ADMIN_API_KEY>`
+and body `{"status": "in_review"}` (one of `submitted` / `in_review` / `in_progress` /
+`completed`), e.g. via curl or Postman. The client sees the change next time they load `/portal`.
 
-**Updating a request's status:** there's no admin UI yet — open the Supabase Table Editor →
-`employer_requests` and edit the `status` cell directly. The employer sees the change next time
-they load `/portal`.
-
-**Still to build:** real candidate matching (status is a manually-set label, not driven by any
-matching logic), a proper staff admin view, and password reset. Submissions still also flow
-through the existing `app/api/enquiry/route.ts` CRM webhook unchanged, so Supabase and the future
-Zoho connection are independent of each other.
+**Still to build:** a proper staff login/admin UI (status updates are currently gated by one
+shared secret key, not per-staff accounts), real candidate matching for recruitment (status is a
+manually-set label, not driven by any matching logic), and password reset. Submissions still also
+flow through the existing `app/api/enquiry/route.ts` CRM webhook unchanged, independent of this
+API — so the future Zoho connection and this login system don't depend on each other.
 
 ## Content model
 
@@ -137,12 +131,12 @@ one-line change per entry, not a hunt through every page component.
 ## Still needed before launch
 
 - Confirm CRM and wire up `CRM_WEBHOOK_URL`
-- Create the Supabase project and env vars for the client portal (see "Client accounts & portal" above) —
-  without them, the "Get Started"/"Login" flow on Active Workforce Recruitment will error
+- Provision a PostgreSQL database and deploy `server/` (see "Client accounts & portal" above) —
+  without them, every "Get Started"/"Login" flow across the site will error
 - Real content for the five remaining divisions
 - Final domain + hosting confirmation, then update `metadataBase` in
   `app/layout.tsx` and the base URL in `app/sitemap.ts`
 - Legal review of privacy notice, cookie notice, terms and complaints page
 - Real photography (brief specifies authentic, non-cliché imagery)
-- Company number / registered office details in the footer
+- Registered office address in the footer (currently omitted; company number is in place)
 # active-workforce-solutions

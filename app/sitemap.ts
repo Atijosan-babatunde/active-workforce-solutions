@@ -1,11 +1,12 @@
 import type { MetadataRoute } from "next";
 import { divisions } from "@/lib/content/divisions";
 import { recoveryConciergePages } from "@/lib/content/recovery-concierge";
+import { blogPosts } from "@/lib/content/blog";
 
 const base = "https://www.activeworkforcesolutions.co.uk";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const staticRoutes = ["", "/about", "/contact", "/resources"].map((path) => ({
+  const staticRoutes = ["", "/about", "/contact", "/resources", "/blog"].map((path) => ({
     url: `${base}${path}`,
   }));
 
@@ -15,5 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     .slice(1)
     .map((p) => ({ url: `${base}/active-recovery-concierge/${p.slug}` }));
 
-  return [...staticRoutes, ...divisionRoutes, ...recoveryRoutes];
+  const blogRoutes = blogPosts.map((p) => ({ url: `${base}/blog/${p.slug}` }));
+
+  return [...staticRoutes, ...divisionRoutes, ...recoveryRoutes, ...blogRoutes];
 }

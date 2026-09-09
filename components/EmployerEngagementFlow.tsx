@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, MapPin, Users, Building2, User, Mail, Phone, MessageSquare, Lock, CheckCircle2, Loader2, LogIn } from "lucide-react";
 import { OptionCard, Field, inputClass, isValidEmail, isValidPhone, isValidName, sanitizePhoneInput } from "./wizard/FormControls";
-import { createClient } from "@/lib/supabase/client";
+import { signup, getCurrentUser, createServiceRequest, ApiError } from "@/lib/api/client";
 
 type Step = "prompt" | "location" | "requirements" | "preferences" | "contact" | "review" | "sent";
 
@@ -54,13 +54,10 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
   const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
   const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const supabase = createClient();
-  const accountsEnabled = !!supabase;
 
   useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.getUser().then(({ data }) => setLoggedInEmail(data.user?.email ?? null));
-  }, [supabase]);
+    getCurrentUser().then((user) => setLoggedInEmail(user?.email ?? null));
+  }, []);
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -99,7 +96,7 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
         return setError("Please enter a valid email address.");
       }
       if (!isValidPhone(answers.phone)) return setError("Please enter a valid telephone number.");
-      if (accountsEnabled && !loggedInEmail) {
+      if (!loggedInEmail) {
         if (answers.password.length < 6) return setError("Please choose a password of at least 6 characters.");
         if (answers.password !== answers.confirmPassword) return setError("Passwords don't match.");
       }
@@ -128,55 +125,44 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
       description: answers.description,
     };
 
+    // Always send to the CRM webhook pipeline — best-effort, independent of
+    // the account/service-request below, so a hiccup in one doesn't lose the
+    // enquiry or block account creation.
+    fetch("/api/enquiry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(enquiryPayload),
+    }).catch(() => {});
+
     try {
-      // Always send to the CRM webhook pipeline — this is what keeps working
-      // even before a Supabase project exists, so no enquiry is ever lost.
-      // Best-effort: a hiccup here shouldn't block the visitor's confirmation.
-      fetch("/api/enquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(enquiryPayload),
-      }).catch(() => {});
-
-      if (supabase) {
-        let userId: string | undefined;
-
-        if (loggedInEmail) {
-          const { data } = await supabase.auth.getUser();
-          userId = data.user?.id;
-        } else {
-          const { data, error: signUpError } = await supabase.auth.signUp({
-            email: answers.email,
-            password: answers.password,
-          });
-          if (signUpError) {
-            if (/already registered|already exists/i.test(signUpError.message)) {
-              setStatus("idle");
-              return setError("You already have an account with this email — please log in to submit a new request.");
-            }
-            setStatus("idle");
-            return setError(signUpError.message);
+      if (!loggedInEmail) {
+        try {
+          await signup(answers.email, answers.password);
+        } catch (err) {
+          setStatus("idle");
+          if (err instanceof ApiError && err.status === 409) {
+            return setError("You already have an account with this email — please log in to submit a new request.");
           }
-          userId = data.user?.id;
-        }
-
-        if (userId) {
-          const { error: insertError } = await supabase.from("employer_requests").insert({
-            user_id: userId,
-            postcode: answers.postcode,
-            role_type: answers.roleType,
-            number_needed: answers.numberNeeded,
-            urgency: answers.urgency,
-            driver_required: answers.driverRequired,
-            preferences: answers.preferences,
-            organisation: answers.organisation,
-            contact_name: answers.contactName,
-            phone: answers.phone,
-            description: answers.description,
-          });
-          if (insertError) throw insertError;
+          return setError(err instanceof ApiError ? err.message : "Something went wrong creating your account.");
         }
       }
+
+      await createServiceRequest({
+        division: "active-workforce-recruitment",
+        source: "employer-recruitment",
+        description: answers.description,
+        details: {
+          postcode: answers.postcode,
+          roleType: answers.roleType,
+          numberNeeded: answers.numberNeeded,
+          urgency: answers.urgency,
+          driverRequired: answers.driverRequired,
+          preferences: answers.preferences,
+          organisation: answers.organisation,
+          contactName: answers.contactName,
+          phone: answers.phone,
+        },
+      });
 
       setStep("sent");
       setStatus("idle");
@@ -208,11 +194,9 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
               <button type="button" onClick={() => setStep("location")} className="rounded-full bg-navy text-white font-medium px-7 py-3 hover:bg-navy2 transition-colors">
                 Get Started
               </button>
-              {accountsEnabled && (
-                <Link href="/portal/login" className="inline-flex items-center gap-2 rounded-full border-2 border-line px-7 py-3 font-medium text-navy hover:border-navy/30 transition-colors">
-                  <LogIn size={16} /> Login
-                </Link>
-              )}
+              <Link href="/portal/login" className="inline-flex items-center gap-2 rounded-full border-2 border-line px-7 py-3 font-medium text-navy hover:border-navy/30 transition-colors">
+                <LogIn size={16} /> Login
+              </Link>
             </div>
             {loggedInEmail && (
               <p className="text-sm text-muted mt-5">
@@ -232,11 +216,9 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
             </span>
             <h3 className="font-display text-2xl text-navy mb-2">Thank you</h3>
             <p className="text-ink/75">We&apos;re reviewing your requirements now and will personally match you with suitable candidates. A member of our recruitment team will follow up shortly.</p>
-            {accountsEnabled && (
-              <Link href="/portal" className="inline-block mt-6 text-navy font-semibold hover:text-navy2">
-                Track the status of your request →
-              </Link>
-            )}
+            <Link href="/portal" className="inline-block mt-6 text-navy font-semibold hover:text-navy2">
+              Track the status of your request →
+            </Link>
           </div>
         )}
 
@@ -306,7 +288,7 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
               Step {stepIndex + 1} of {totalSteps}
             </p>
             <h2 ref={headingRef} tabIndex={-1} className="font-display text-2xl md:text-3xl text-navy mb-6 outline-none">
-              {loggedInEmail || !accountsEnabled ? "How can we reach you?" : "Create your account"}
+              {loggedInEmail ? "How can we reach you?" : "Create your account"}
             </h2>
             <div className="space-y-5">
               <Field label="Organisation" icon={<Building2 size={15} />}>
@@ -327,7 +309,7 @@ export default function EmployerEngagementFlow({ sourcePage = "active-workforce-
               <Field label="Telephone number" icon={<Phone size={15} />}>
                 <input type="tel" inputMode="tel" className={inputClass} value={answers.phone} onChange={(e) => set("phone", sanitizePhoneInput(e.target.value))} placeholder="07XXX XXXXXX" />
               </Field>
-              {accountsEnabled && !loggedInEmail && (
+              {!loggedInEmail && (
                 <>
                   <Field label="Choose a password" icon={<Lock size={15} />}>
                     <input type="password" className={inputClass} value={answers.password} onChange={(e) => set("password", e.target.value)} placeholder="At least 6 characters" />

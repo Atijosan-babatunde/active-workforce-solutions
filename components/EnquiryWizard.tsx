@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, HeartHandshake, Users, CheckCircle2, Loader2, User, Mail, Phone, MessageSquare, Briefcase } from "lucide-react";
+import { ChevronLeft, HeartHandshake, CheckCircle2, Loader2, User, Mail, Phone, MessageSquare, Briefcase, Lock } from "lucide-react";
 import { divisions } from "@/lib/content/divisions";
 import IconBadge from "./IconBadge";
 import { OptionCard, Field, inputClass, isValidEmail, isValidPhone, isValidName, sanitizePhoneInput } from "./wizard/FormControls";
+import { signup, getCurrentUser, createServiceRequest, ApiError } from "@/lib/api/client";
 
 type EnquiryType = "client" | "professional";
 
@@ -29,6 +30,8 @@ type Answers = {
   role: string;
   email: string;
   phone: string;
+  password: string;
+  confirmPassword: string;
   experience: string;
   description: string;
   consent: boolean;
@@ -41,6 +44,8 @@ const emptyAnswers: Answers = {
   role: "",
   email: "",
   phone: "",
+  password: "",
+  confirmPassword: "",
   experience: "",
   description: "",
   consent: false,
@@ -57,9 +62,15 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
   });
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const currentStepId = path ? steps[stepIndex] : "fork";
+
+  useEffect(() => {
+    if (path !== "client") return;
+    getCurrentUser().then((user) => setLoggedInEmail(user?.email ?? null));
+  }, [path]);
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -96,8 +107,13 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
       if (path === "professional" && !answers.role.trim()) return setError("Please tell us the role you're interested in.");
     }
     if (currentStepId === "contact") {
-      if (!isValidEmail(answers.email)) return setError("Please enter a valid email address.");
+      const usingLoggedInEmail = path === "client" && !!loggedInEmail;
+      if (!usingLoggedInEmail && !isValidEmail(answers.email)) return setError("Please enter a valid email address.");
       if (!isValidPhone(answers.phone)) return setError("Please enter a valid telephone number.");
+      if (path === "client" && !loggedInEmail) {
+        if (answers.password.length < 6) return setError("Please choose a password of at least 6 characters.");
+        if (answers.password !== answers.confirmPassword) return setError("Passwords don't match.");
+      }
     }
     if (currentStepId === "experience") {
       if (!answers.experience) return setError("Please select your level of experience.");
@@ -122,19 +138,64 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
       fullName: answers.fullName,
       organisation: path === "client" ? answers.organisation : undefined,
       role: path === "professional" ? answers.role : undefined,
-      email: answers.email,
+      email: loggedInEmail ?? answers.email,
       phone: answers.phone,
       experience: path === "professional" ? answers.experience : undefined,
       description: answers.description,
       sourcePage,
     };
+
+    // The professional (careers) path never creates a portal account — it's
+    // a job application, not a trackable service request — so it keeps the
+    // original CRM-only behaviour.
+    if (path !== "client") {
+      try {
+        const res = await fetch("/api/enquiry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("Request failed");
+        setStatus("sent");
+      } catch {
+        setStatus("error");
+      }
+      return;
+    }
+
+    // Always send to the CRM webhook pipeline — best-effort, independent of
+    // the account/service-request below, so a hiccup in one doesn't lose the
+    // enquiry or block account creation.
+    fetch("/api/enquiry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+
     try {
-      const res = await fetch("/api/enquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      if (!loggedInEmail) {
+        try {
+          await signup(answers.email, answers.password);
+        } catch (err) {
+          setStatus("idle");
+          if (err instanceof ApiError && err.status === 409) {
+            return setError("You already have an account with this email — please log in to submit a new request.");
+          }
+          return setError(err instanceof ApiError ? err.message : "Something went wrong creating your account.");
+        }
+      }
+
+      await createServiceRequest({
+        division: answers.division,
+        source: "contact-wizard",
+        description: answers.description,
+        details: {
+          fullName: answers.fullName,
+          organisation: answers.organisation,
+          phone: answers.phone,
+        },
       });
-      if (!res.ok) throw new Error("Request failed");
+
       setStatus("sent");
     } catch {
       setStatus("error");
@@ -152,9 +213,15 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
         </span>
         <h3 className="font-display text-2xl text-navy mb-2">Thank you</h3>
         <p className="text-ink/75 max-w-md mx-auto">{path === "professional" ? "Thanks for your interest in joining Active Workforce Solutions. We'll review your details and be in touch about next steps." : "Your enquiry has been received. A member of our team will be in touch shortly."}</p>
-        <Link href="/" className="inline-block mt-6 text-navy font-semibold hover:text-navy2">
-          Back to homepage →
-        </Link>
+        {path === "client" ? (
+          <Link href="/portal" className="inline-block mt-6 text-navy font-semibold hover:text-navy2">
+            Track the status of your request →
+          </Link>
+        ) : (
+          <Link href="/" className="inline-block mt-6 text-navy font-semibold hover:text-navy2">
+            Back to homepage →
+          </Link>
+        )}
       </div>
     );
   }
@@ -237,12 +304,29 @@ export default function EnquiryWizard({ sourcePage, initialDivision, forcePath }
               How can we reach you?
             </h2>
             <div className="space-y-5">
-              <Field label="Email address" icon={<Mail size={15} />}>
-                <input type="email" className={inputClass} value={answers.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" />
-              </Field>
+              {path === "client" && loggedInEmail ? (
+                <Field label="Email address" icon={<Mail size={15} />}>
+                  <input className={inputClass} value={loggedInEmail} disabled />
+                </Field>
+              ) : (
+                <Field label="Email address" icon={<Mail size={15} />}>
+                  <input type="email" className={inputClass} value={answers.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" />
+                </Field>
+              )}
               <Field label="Telephone number" icon={<Phone size={15} />}>
                 <input type="tel" inputMode="tel" className={inputClass} value={answers.phone} onChange={(e) => set("phone", sanitizePhoneInput(e.target.value))} placeholder="07XXX XXXXXX" />
               </Field>
+              {path === "client" && !loggedInEmail && (
+                <>
+                  <Field label="Choose a password" icon={<Lock size={15} />}>
+                    <input type="password" className={inputClass} value={answers.password} onChange={(e) => set("password", e.target.value)} placeholder="At least 6 characters" />
+                  </Field>
+                  <Field label="Confirm password" icon={<Lock size={15} />}>
+                    <input type="password" className={inputClass} value={answers.confirmPassword} onChange={(e) => set("confirmPassword", e.target.value)} placeholder="Re-enter your password" />
+                  </Field>
+                  <p className="text-xs text-muted">We'll use this to create your account so you can log back in later and see the status of this enquiry.</p>
+                </>
+              )}
             </div>
           </>
         )}

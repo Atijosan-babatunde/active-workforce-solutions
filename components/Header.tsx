@@ -3,13 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { Briefcase, UserPlus } from "lucide-react";
+import { Briefcase, UserPlus, LogIn } from "lucide-react";
 import { divisions } from "@/lib/content/divisions";
+import { recoveryConciergePages } from "@/lib/content/recovery-concierge";
 import IconBadge from "./IconBadge";
 
-const otherDivisions = divisions.filter((d) => d.slug !== "active-workforce-recruitment");
+const otherDivisions = divisions.filter((d) => d.slug !== "active-workforce-recruitment" && d.slug !== "active-recovery-concierge");
 
-type MenuKey = "what-we-do" | "recruitment";
+type MenuKey = "what-we-do" | "recovery-concierge" | "recruitment";
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -44,7 +45,7 @@ export default function Header() {
           <Image src="/logo.png" alt="Active Workforce Solutions" width={220} height={46} className="h-9 w-auto" priority />
         </Link>
 
-        <nav ref={navRef} className="hidden lg:flex items-center gap-8 text-sm" aria-label="Primary">
+        <nav ref={navRef} className="hidden lg:flex items-center gap-6 text-sm whitespace-nowrap" aria-label="Primary">
           <Link href="/about" className="text-ink hover:text-teal transition-colors">
             About Us
           </Link>
@@ -82,6 +83,37 @@ export default function Header() {
           </div>
           <div
             className="relative"
+            onMouseEnter={() => setOpenMenu("recovery-concierge")}
+            onMouseLeave={() => setOpenMenu((m) => (m === "recovery-concierge" ? null : m))}
+          >
+            <button
+              className="flex items-center gap-1 text-ink hover:text-teal transition-colors"
+              aria-haspopup="true"
+              aria-expanded={openMenu === "recovery-concierge"}
+              onClick={() => setOpenMenu((m) => (m === "recovery-concierge" ? null : "recovery-concierge"))}
+            >
+              Recovery Concierge
+            </button>
+            {openMenu === "recovery-concierge" && (
+              <div className="absolute left-0 top-full pt-3">
+                <ul className="w-80 bg-white border border-line rounded-card shadow-lg p-2 max-h-[26rem] overflow-y-auto">
+                  {recoveryConciergePages.map((p) => (
+                    <li key={p.slug}>
+                      <Link
+                        href={p.slug === "active-recovery-concierge" ? "/active-recovery-concierge" : `/active-recovery-concierge/${p.slug}`}
+                        onClick={() => setOpenMenu(null)}
+                        className="block px-3 py-2.5 rounded-md hover:bg-sand text-ink"
+                      >
+                        {p.title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <div
+            className="relative"
             onMouseEnter={() => setOpenMenu("recruitment")}
             onMouseLeave={() => setOpenMenu((m) => (m === "recruitment" ? null : m))}
           >
@@ -91,7 +123,7 @@ export default function Header() {
               aria-expanded={openMenu === "recruitment"}
               onClick={() => setOpenMenu((m) => (m === "recruitment" ? null : "recruitment"))}
             >
-              Active Workforce Recruitment
+              Workforce Recruitment
             </button>
             {openMenu === "recruitment" && (
               <div className="absolute left-0 top-full pt-3">
@@ -128,8 +160,16 @@ export default function Header() {
           </Link>
         </nav>
 
-        <div className="hidden lg:block">
-          <Link href="/contact" className="inline-flex items-center rounded-full bg-navy text-white px-5 py-2.5 text-sm font-medium hover:bg-navy2 transition-colors">
+        <div className="hidden lg:flex items-center gap-3 shrink-0">
+          <Link
+            href="/portal/login"
+            aria-label="Log in to your account"
+            title="Log in to your account"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-full text-muted hover:text-navy hover:bg-sand transition-colors shrink-0"
+          >
+            <LogIn size={17} />
+          </Link>
+          <Link href="/contact" className="inline-flex items-center whitespace-nowrap shrink-0 rounded-full bg-navy text-white px-5 py-2.5 text-sm font-medium hover:bg-navy2 transition-colors">
             Book a Consultation
           </Link>
         </div>
@@ -158,6 +198,20 @@ export default function Header() {
               </li>
             ))}
             <li className="pt-2 mt-2 border-t border-line">
+              <span className="block py-1.5 text-xs font-semibold uppercase tracking-wide text-muted">Active Recovery Concierge</span>
+            </li>
+            {recoveryConciergePages.map((p) => (
+              <li key={p.slug}>
+                <Link
+                  href={p.slug === "active-recovery-concierge" ? "/active-recovery-concierge" : `/active-recovery-concierge/${p.slug}`}
+                  className="block py-2.5 text-ink"
+                  onClick={() => setOpen(false)}
+                >
+                  {p.title}
+                </Link>
+              </li>
+            ))}
+            <li className="pt-2 mt-2 border-t border-line">
               <span className="block py-1.5 text-xs font-semibold uppercase tracking-wide text-muted">Active Workforce Recruitment</span>
             </li>
             <li>
@@ -175,6 +229,11 @@ export default function Header() {
             <li>
               <Link href="/resources" className="block py-2.5 text-ink" onClick={() => setOpen(false)}>
                 Resources
+              </Link>
+            </li>
+            <li>
+              <Link href="/portal/login" className="flex items-center gap-2 py-2.5 text-ink" onClick={() => setOpen(false)}>
+                <LogIn size={16} /> Log In
               </Link>
             </li>
             <li>

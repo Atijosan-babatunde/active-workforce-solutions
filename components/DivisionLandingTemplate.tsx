@@ -30,6 +30,7 @@ export default function DivisionLandingTemplate({ division, image, secondaryImag
         primaryButton="Book a Consultation"
         secondaryButton="Enquire Now"
         primaryHref={primaryHref}
+        secondaryHref="#enquire"
         image={image}
       />
 

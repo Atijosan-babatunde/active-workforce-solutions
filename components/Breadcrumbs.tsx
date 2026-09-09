@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { getDivision } from "@/lib/content/divisions";
 import { getRecoveryPage } from "@/lib/content/recovery-concierge";
+import { getBlogPost } from "@/lib/content/blog";
 
 // Segments that aren't division slugs or Recovery Concierge sub-pages —
 // filled in by hand since there's no content file to look them up in.
@@ -13,6 +14,7 @@ const STATIC_LABELS: Record<string, string> = {
   contact: "Contact Us",
   careers: "Careers",
   resources: "Resources",
+  blog: "Blog",
   "privacy-policy": "Privacy Notice",
   "cookie-policy": "Cookie Notice",
   terms: "Terms of Website Use",
@@ -32,6 +34,11 @@ function labelFor(segment: string, ancestors: string[]): string {
     if (page) return page.title;
   }
 
+  if (ancestors[ancestors.length - 1] === "blog") {
+    const post = getBlogPost(segment);
+    if (post) return post.title;
+  }
+
   if (STATIC_LABELS[segment]) return STATIC_LABELS[segment];
 
   return segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -46,15 +53,10 @@ export default function Breadcrumbs() {
     href: "/" + segments.slice(0, i + 1).join("/"),
     label: labelFor(segment, segments.slice(0, i)),
   }));
-  const parentHref = segments.length > 1 ? "/" + segments.slice(0, -1).join("/") : "/";
 
   return (
     <nav aria-label="Breadcrumb" className="bg-sand border-b border-line">
       <div className="mx-auto max-w-content px-6 py-3 flex items-center gap-3 text-sm overflow-x-auto">
-        <Link href={parentHref} className="flex items-center gap-1.5 font-medium text-navy hover:text-teal transition-colors shrink-0">
-          <ArrowLeft size={15} strokeWidth={2} /> Back
-        </Link>
-        <span className="text-line shrink-0" aria-hidden="true">|</span>
         <ol className="flex items-center gap-1.5 text-muted shrink-0">
           <li>
             <Link href="/" className="hover:text-navy transition-colors">Home</Link>

@@ -1,45 +1,24 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
 
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+// Must match AUTH_COOKIE_NAME in server/src/lib/jwt.ts — that's where this
+// cookie is actually set. This is a presence-only check: it can't verify
+// the JWT's signature (Edge middleware can't use the `jsonwebtoken`
+// package), so a present-but-expired/tampered cookie still passes through
+// here. That's fine — /portal's Server Component makes the authoritative
+// check via a real call to the API's /auth/me and redirects if that fails,
+// the same defense-in-depth shape this middleware already had.
+const AUTH_COOKIE_NAME = "auth_token";
 
-  // No Supabase project configured yet — nothing to authenticate, let
-  // requests through unchanged (the /portal pages show their own
-  // "not set up yet" message rather than relying on this redirect).
-  if (!isSupabaseConfigured) return response;
+export function middleware(request: NextRequest) {
+  const hasCookie = request.cookies.has(AUTH_COOKIE_NAME);
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-        },
-      },
-    }
-  );
-
-  // Touching the session on every request is what actually refreshes the
-  // auth cookie before its ~1hr access token expires.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user && request.nextUrl.pathname.startsWith("/portal") && request.nextUrl.pathname !== "/portal/login") {
+  if (!hasCookie && request.nextUrl.pathname.startsWith("/portal") && request.nextUrl.pathname !== "/portal/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/portal/login";
     return NextResponse.redirect(url);
   }
 
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
