@@ -1,6 +1,23 @@
 import Link from "next/link";
-import { Phone, MessageCircle } from "lucide-react";
+import { Phone, MessageCircle, Instagram, Facebook, Linkedin } from "lucide-react";
 import { divisions } from "@/lib/content/divisions";
+
+// lucide-react has no TikTok glyph — a small inline SVG, same approach as
+// the WhatsApp icon in components/WhatsAppButton.tsx.
+function TikTokIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.6 5.82c-1.02-.9-1.6-2.19-1.6-3.62h-3.15v13.4c0 1.6-1.3 2.9-2.9 2.9a2.9 2.9 0 0 1 0-5.8c.3 0 .58.04.85.12V9.6a6.1 6.1 0 0 0-.85-.06 6.06 6.06 0 1 0 6.06 6.06V9.4a7.14 7.14 0 0 0 4.16 1.33V7.6a3.98 3.98 0 0 1-2.57-1.78Z" />
+    </svg>
+  );
+}
+
+const socialLinks = [
+  { label: "Instagram", href: "https://www.instagram.com/activerecoveryconcierge?stkn=aTA1MWZ6c3JyYmhl&utm_source=qr", icon: Instagram },
+  { label: "TikTok", href: "#", icon: TikTokIcon },
+  { label: "LinkedIn", href: "#", icon: Linkedin },
+  { label: "Facebook", href: "https://www.facebook.com/share/1DgvzpzLL2/?mibextid=wwXIfr", icon: Facebook },
+];
 
 export default function Footer() {
   return (
@@ -95,9 +112,18 @@ export default function Footer() {
       </div>
 
       <div className="border-t border-white/10">
-        <div className="mx-auto max-w-content px-6 py-6 flex flex-col md:flex-row justify-between gap-3 text-xs text-white/60">
+        <div className="mx-auto max-w-content px-6 py-6 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-white/60">
           <p>© {new Date().getFullYear()} Active Workforce Solutions Ltd. Company number 14242200.</p>
+
           {/* <p>This website provides non-clinical information. It is not a substitute for advice from a regulated professional.</p> */}
+
+          <div className="flex items-center gap-3">
+            {socialLinks.map((s) => (
+              <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors">
+                <s.icon size={15} />
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </footer>
