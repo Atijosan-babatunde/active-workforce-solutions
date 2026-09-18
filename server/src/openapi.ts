@@ -38,6 +38,36 @@ const serviceRequest = {
   required: ["id", "division", "source", "description", "status", "createdAt"],
 };
 
+const admin = {
+  type: "object",
+  properties: {
+    id: { type: "string", format: "uuid" },
+    email: { type: "string", format: "email" },
+    name: { type: "string", nullable: true },
+  },
+  required: ["id", "email"],
+};
+
+const enquiry = {
+  type: "object",
+  properties: {
+    id: { type: "string", format: "uuid" },
+    enquiryType: { type: "string", example: "client" },
+    division: { type: "string", nullable: true, example: "active-recovery-concierge" },
+    fullName: { type: "string" },
+    email: { type: "string", format: "email" },
+    phone: { type: "string", nullable: true },
+    organisation: { type: "string", nullable: true },
+    description: { type: "string", nullable: true },
+    sourcePage: { type: "string", nullable: true },
+    details: { type: "object", nullable: true, additionalProperties: true },
+    status: { type: "string", enum: ["new", "contacted", "in_progress", "won", "lost"] },
+    createdAt: { type: "string", format: "date-time" },
+    updatedAt: { type: "string", format: "date-time" },
+  },
+  required: ["id", "enquiryType", "fullName", "email", "status", "createdAt", "updatedAt"],
+};
+
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
@@ -53,7 +83,9 @@ export const openApiSpec = {
   tags: [
     { name: "Auth", description: "Signup, login, logout, current user" },
     { name: "Requests", description: "A client's own service requests" },
-    { name: "Admin", description: "Staff status updates — gated by ADMIN_API_KEY" },
+    { name: "Admin", description: "Legacy staff status updates — gated by ADMIN_API_KEY" },
+    { name: "Admin Auth", description: "Staff dashboard login (separate from client accounts)" },
+    { name: "Enquiries", description: "Every form submission site-wide — the admin dashboard's data source" },
   ],
   components: {
     securitySchemes: {
@@ -63,13 +95,19 @@ export const openApiSpec = {
         name: "auth_token",
         description: "Set automatically by /auth/login or /auth/signup.",
       },
+      adminSessionAuth: {
+        type: "apiKey",
+        in: "cookie",
+        name: "admin_token",
+        description: "Set automatically by /admin/auth/login. Separate from the client auth_token cookie.",
+      },
       adminKey: {
         type: "http",
         scheme: "bearer",
         description: "The ADMIN_API_KEY configured in server/.env, sent as: Authorization: Bearer <key>",
       },
     },
-    schemas: { Error: errorResponse, User: user, ServiceRequest: serviceRequest },
+    schemas: { Error: errorResponse, User: user, ServiceRequest: serviceRequest, Admin: admin, Enquiry: enquiry },
   },
   paths: {
     "/health": {
@@ -208,6 +246,170 @@ export const openApiSpec = {
           "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "401": { description: "Missing or wrong admin key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "404": { description: "Request not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/admin/auth/signup": {
+      post: {
+        tags: ["Admin Auth"],
+        summary: "Create a staff account",
+        description: "Gated by ADMIN_API_KEY, not open signup — this is how the first (and any later) staff account gets created.",
+        security: [{ adminKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { email: { type: "string", format: "email" }, password: { type: "string", minLength: 6 }, name: { type: "string" } },
+                required: ["email", "password"],
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Created", content: { "application/json": { schema: { type: "object", properties: { admin: { $ref: "#/components/schemas/Admin" } } } } } },
+          "401": { description: "Missing or wrong admin key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "409": { description: "Email already registered", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/admin/auth/login": {
+      post: {
+        tags: ["Admin Auth"],
+        summary: "Staff log in",
+        description: "Sets the admin_token cookie on success. Rate-limited.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { email: { type: "string", format: "email" }, password: { type: "string" } },
+                required: ["email", "password"],
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Logged in", content: { "application/json": { schema: { type: "object", properties: { admin: { $ref: "#/components/schemas/Admin" } } } } } },
+          "401": { description: "Incorrect email or password", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/admin/auth/logout": {
+      post: {
+        tags: ["Admin Auth"],
+        summary: "Staff log out",
+        responses: { "204": { description: "Logged out" } },
+      },
+    },
+    "/admin/auth/me": {
+      get: {
+        tags: ["Admin Auth"],
+        summary: "Get the current logged-in staff member",
+        security: [{ adminSessionAuth: [] }],
+        responses: {
+          "200": { description: "Logged in", content: { "application/json": { schema: { type: "object", properties: { admin: { $ref: "#/components/schemas/Admin" } } } } } },
+          "401": { description: "Not authenticated", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/enquiries": {
+      post: {
+        tags: ["Enquiries"],
+        summary: "Record a form submission (internal)",
+        description: "Called server-to-server from the Next.js app on every form submission site-wide — not intended for browser use.",
+        security: [{ adminKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  enquiryType: { type: "string", example: "client" },
+                  division: { type: "string" },
+                  fullName: { type: "string" },
+                  email: { type: "string", format: "email" },
+                  phone: { type: "string" },
+                  organisation: { type: "string" },
+                  description: { type: "string" },
+                  sourcePage: { type: "string" },
+                  details: { type: "object", additionalProperties: true },
+                },
+                required: ["enquiryType", "fullName", "email"],
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Created", content: { "application/json": { schema: { type: "object", properties: { enquiry: { $ref: "#/components/schemas/Enquiry" } } } } } },
+          "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or wrong admin key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+      get: {
+        tags: ["Enquiries"],
+        summary: "List enquiries (staff)",
+        description: "Newest first. Supports filtering and pagination.",
+        security: [{ adminSessionAuth: [] }],
+        parameters: [
+          { name: "status", in: "query", schema: { type: "string", enum: ["new", "contacted", "in_progress", "won", "lost"] } },
+          { name: "division", in: "query", schema: { type: "string" } },
+          { name: "enquiryType", in: "query", schema: { type: "string" } },
+          { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 200, default: 50 } },
+          { name: "offset", in: "query", schema: { type: "integer", minimum: 0, default: 0 } },
+        ],
+        responses: {
+          "200": {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { type: "object", properties: { enquiries: { type: "array", items: { $ref: "#/components/schemas/Enquiry" } }, total: { type: "integer" } } },
+              },
+            },
+          },
+          "401": { description: "Not authenticated", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/enquiries/{id}": {
+      get: {
+        tags: ["Enquiries"],
+        summary: "Get one enquiry (staff)",
+        security: [{ adminSessionAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          "200": { description: "OK", content: { "application/json": { schema: { type: "object", properties: { enquiry: { $ref: "#/components/schemas/Enquiry" } } } } } },
+          "401": { description: "Not authenticated", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/enquiries/{id}/status": {
+      patch: {
+        tags: ["Enquiries"],
+        summary: "Update an enquiry's status (staff)",
+        security: [{ adminSessionAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { status: { type: "string", enum: ["new", "contacted", "in_progress", "won", "lost"] } },
+                required: ["status"],
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Updated", content: { "application/json": { schema: { type: "object", properties: { enquiry: { $ref: "#/components/schemas/Enquiry" } } } } } },
+          "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Not authenticated", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },

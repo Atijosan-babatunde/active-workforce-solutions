@@ -8,12 +8,64 @@ const MAX_FIELD_LENGTH = 5000;
 // else in the site talks to this route only — nothing else needs to know
 // about the CRM.
 //
-// Required env vars (set in Vercel project settings, never commit real values):
-//   CRM_WEBHOOK_URL   - the CRM's inbound webhook / API endpoint
-//   CRM_API_KEY       - auth token for that endpoint
+// It also persists every submission into our own database (via the
+// Express API's /enquiries endpoint) so the admin dashboard at /admin has
+// a complete record, regardless of whether the submitter also created a
+// client account — that's a separate, optional path that only creates a
+// ServiceRequest for the smaller subset who opt into /portal tracking.
 //
-// Until those are set, submissions are logged server-side only so the
-// form can be tested end-to-end before the CRM is wired up.
+// Required env vars (set in Vercel project settings, never commit real values):
+//   CRM_WEBHOOK_URL      - the CRM's inbound webhook / API endpoint
+//   CRM_API_KEY          - auth token for that endpoint
+//   NEXT_PUBLIC_API_URL  - the Express API's base URL (see server/)
+//   ADMIN_API_KEY        - shared secret the Express API trusts (see server/.env)
+//
+// Until CRM_WEBHOOK_URL is set, submissions are still logged server-side so
+// the form can be tested end-to-end before a CRM is chosen.
+
+// Fields every form sends under a consistent name — everything else in the
+// payload is form-specific and gets captured in `details` instead.
+const KNOWN_FIELDS = new Set([
+  "enquiryType",
+  "division",
+  "divisionName",
+  "fullName",
+  "contactName",
+  "email",
+  "phone",
+  "organisation",
+  "description",
+  "sourcePage",
+]);
+
+// EmployerEngagementFlow and PermTempRecruitmentForm never send `division`
+// explicitly — both are always Active Workforce Recruitment.
+const DIVISION_DEFAULTS: Record<string, string> = {
+  "employer-recruitment": "active-workforce-recruitment",
+  "perm-temp-recruitment": "active-workforce-recruitment",
+};
+
+function toEnquiryPayload(body: Record<string, unknown>) {
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : undefined);
+  const enquiryType = str(body.enquiryType) ?? "unknown";
+
+  const details: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (!KNOWN_FIELDS.has(key)) details[key] = value;
+  }
+
+  return {
+    enquiryType,
+    division: str(body.division) ?? DIVISION_DEFAULTS[enquiryType],
+    fullName: str(body.fullName) ?? str(body.contactName) ?? "Unknown",
+    email: str(body.email) ?? "",
+    phone: str(body.phone),
+    organisation: str(body.organisation),
+    description: str(body.description),
+    sourcePage: str(body.sourcePage),
+    details: Object.keys(details).length > 0 ? details : undefined,
+  };
+}
 
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
@@ -74,6 +126,25 @@ export async function POST(req: NextRequest) {
     }
   } else {
     console.log("Enquiry received (CRM_WEBHOOK_URL not yet configured):", record);
+  }
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const adminApiKey = process.env.ADMIN_API_KEY;
+  if (apiUrl && adminApiKey) {
+    try {
+      const res = await fetch(`${apiUrl}/enquiries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminApiKey}` },
+        body: JSON.stringify(toEnquiryPayload(body)),
+      });
+      if (!res.ok) console.error("Enquiry persistence failed:", res.status, await res.text());
+    } catch (err) {
+      // Same principle as the CRM webhook above — never fail the visitor's
+      // submission because our own admin-dashboard database is unreachable.
+      console.error("Enquiry persistence failed:", err);
+    }
+  } else {
+    console.log("Enquiry not persisted to admin dashboard (NEXT_PUBLIC_API_URL/ADMIN_API_KEY not yet configured)");
   }
 
   return NextResponse.json({ ok: true });

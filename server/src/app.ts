@@ -7,6 +7,8 @@ import { openApiSpec } from "./openapi";
 import { authRouter } from "./routes/auth.routes";
 import { requestsRouter } from "./routes/requests.routes";
 import { adminRouter } from "./routes/admin.routes";
+import { adminAuthRouter } from "./routes/adminAuth.routes";
+import { enquiriesRouter } from "./routes/enquiries.routes";
 import { errorHandler } from "./middleware/errorHandler";
 
 export const app = express();
@@ -43,6 +45,12 @@ app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
 app.use("/auth", authRouter);
 app.use("/requests", requestsRouter);
+// /admin/auth must be registered before /admin — Express matches by prefix
+// in registration order, so mounting /admin first would swallow every
+// /admin/auth/* request into adminRouter's unconditional requireAdminKey
+// check before it ever reached the session-based admin auth routes.
+app.use("/admin/auth", adminAuthRouter);
 app.use("/admin", adminRouter);
+app.use("/enquiries", enquiriesRouter);
 
 app.use(errorHandler);

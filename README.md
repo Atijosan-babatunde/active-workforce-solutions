@@ -77,16 +77,49 @@ runs), with `NODE_ENV=production`, a real `FRONTEND_ORIGIN` (the deployed site's
 required for the auth cookie to work cross-domain), and `NEXT_PUBLIC_API_URL` on the Next.js side
 pointed at that service's URL.
 
-**Updating a request's status:** there's still no admin UI — call
-`PATCH <api-url>/admin/requests/:id/status` with header `Authorization: Bearer <ADMIN_API_KEY>`
-and body `{"status": "in_review"}` (one of `submitted` / `in_review` / `in_progress` /
-`completed`), e.g. via curl or Postman. The client sees the change next time they load `/portal`.
+**Updating a request's status:** there's still no UI specifically for `service_requests` (the
+`/portal` self-service view) — call `PATCH <api-url>/admin/requests/:id/status` with header
+`Authorization: Bearer <ADMIN_API_KEY>` and body `{"status": "in_review"}` (one of `submitted` /
+`in_review` / `in_progress` / `completed`), e.g. via curl or Postman. The client sees the change
+next time they load `/portal`. (For the separate, complete picture of every enquiry site-wide —
+including the ones that never created an account — see "Admin dashboard" below, which does have a
+real UI.)
 
-**Still to build:** a proper staff login/admin UI (status updates are currently gated by one
-shared secret key, not per-staff accounts), real candidate matching for recruitment (status is a
-manually-set label, not driven by any matching logic), and password reset. Submissions still also
-flow through the existing `app/api/enquiry/route.ts` CRM webhook unchanged, independent of this
-API — so the future Zoho connection and this login system don't depend on each other.
+**Still to build:** real candidate matching for recruitment (status is a manually-set label, not
+driven by any matching logic) and password reset. Submissions still also flow through the existing
+`app/api/enquiry/route.ts` CRM webhook unchanged, independent of this API — so the future Zoho
+connection and this login system don't depend on each other.
+
+## Admin dashboard
+
+Every form submission site-wide — regardless of division, and regardless of whether the submitter
+created a client account — is recorded and visible at `/admin`. This is what closes the gap the
+client originally wanted Zoho for: one place to see every lead/enquiry, filter by status, and move
+it through a pipeline (New → Contacted → In Progress → Won/Lost).
+
+**How it's populated:** `app/api/enquiry/route.ts` — the one route every form already posts to —
+forwards a normalised copy of each submission to the API's `POST /enquiries` endpoint. Nothing in
+any form component needed to change for this; it was already the single point every submission
+already passed through.
+
+**Creating the first (or another) staff account** — there's no public admin signup, deliberately.
+Create one via the key-gated endpoint:
+```bash
+curl -X POST <api-url>/admin/auth/signup \
+  -H "Authorization: Bearer <ADMIN_API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"staff@activeworkforcesolutions.com","password":"choose-a-real-password","name":"Staff Name"}'
+```
+Then log in normally at `/admin/login` with that email and password — it's a real session (its own
+`admin_token` cookie, entirely separate from client logins), not the shared key.
+
+**Env vars needed beyond what "Client accounts & portal" already covers:** the Next.js app now
+also needs `ADMIN_API_KEY` (must match `server/.env`'s value exactly) so `/api/enquiry` can
+authenticate its call to `POST /enquiries` — see `.env.example`.
+
+**Still to build:** per-admin roles/permissions (every staff account currently has full access),
+pagination on the dashboard list beyond the first 50 (fine for launch volume, revisit once real
+traffic arrives), and a division filter alongside the existing status filter.
 
 ## Content model
 
