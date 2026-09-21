@@ -44,82 +44,68 @@ All enquiry forms post to `app/api/enquiry/route.ts`. To connect a real CRM:
 Until those are set, submissions are logged server-side so the whole flow
 can be tested end-to-end before the CRM is chosen.
 
-## Client accounts & portal
+## Client accounts, admin dashboard & the database
 
-Any client-path enquiry — the division wizard on `/contact` (`components/EnquiryWizard.tsx`),
-Active Workforce Recruitment's "Get Started" flow (`components/EmployerEngagementFlow.tsx`), and
-the Perm & Temp Recruitment form (`components/PermTempRecruitmentForm.tsx`) — can optionally
-create a real account and request record via the standalone API in `server/` (Express + Prisma +
-PostgreSQL, with its own email/password auth), so the client can log back in at `/portal/login`
-and see the status of what they submitted at `/portal`, whichever of the six divisions it was for.
-The "professional" (careers) path never creates an account — that's a job application, not a
-trackable service request.
+This is one Next.js app end to end — the frontend, the API routes (`app/api/**/route.ts`), and the
+Prisma/PostgreSQL data layer all live in this one project and deploy together. There's no separate
+backend service to run or deploy.
+
+**What it powers:**
+- Any client-path enquiry — the division wizard on `/contact` (`components/EnquiryWizard.tsx`),
+  Active Workforce Recruitment's "Get Started" flow (`components/EmployerEngagementFlow.tsx`), and
+  the Perm & Temp Recruitment form (`components/PermTempRecruitmentForm.tsx`) — can optionally
+  create a real account, so the client can log back in at `/portal/login` and see the status of
+  what they submitted at `/portal`. The "professional" (careers) path never creates an account —
+  that's a job application, not a trackable service request.
+- **Every** form submission site-wide, regardless of division and regardless of whether the
+  submitter created an account, is recorded and visible to staff at `/admin` — filterable by
+  status, moved through a pipeline (New → Contacted → In Progress → Won/Lost). This is what closes
+  the gap originally intended for a CRM like Zoho: one place to see every lead/enquiry. It's
+  populated automatically by `app/api/enquiry/route.ts` — the one route every form already posts
+  to — so no form component needs to know the admin dashboard exists.
 
 **One-time setup:**
 1. Get a PostgreSQL connection string — any host works: a free instance on
    [Neon](https://neon.tech) or [Railway](https://railway.app), Supabase's free Postgres used as a
    plain database, or a local `postgres` (e.g. via Docker).
-2. In `server/`, copy `.env.example` to `.env` and fill in `DATABASE_URL`, plus generate
-   `JWT_SECRET` and `ADMIN_API_KEY` (e.g. `openssl rand -base64 48`). Leave `FRONTEND_ORIGIN` as
-   `http://localhost:3000` for local dev.
-3. `cd server && npm install && npm run prisma:migrate` — creates the `User` and `ServiceRequest`
-   tables from `server/prisma/schema.prisma`.
-4. `npm run dev` in `server/` (defaults to `http://localhost:4000`), and separately `npm run dev`
-   at the repo root for the Next.js app. Set `NEXT_PUBLIC_API_URL=http://localhost:4000` in the
-   root `.env.local` (see `.env.example`) so the frontend knows where to send requests.
+2. Copy `.env.example` to `.env.local` and fill in `DATABASE_URL`, plus generate `JWT_SECRET` and
+   `ADMIN_API_KEY` (e.g. `openssl rand -base64 48` for each).
+3. `npm install` — runs `prisma generate` automatically via the `postinstall` script. Then
+   `npm run prisma:migrate` to create the `User`, `ServiceRequest`, `AdminUser` and `Enquiry`
+   tables from `prisma/schema.prisma`.
+4. `npm run dev` — one command, one server, on `http://localhost:3000`.
 
-**API docs:** every endpoint is documented at `<api-url>/docs` (Swagger UI, e.g.
-`http://localhost:4000/docs` locally) — request/response shapes, which are auth-protected, and a
-"Try it out" button that works directly against a running server.
-
-In production, `server/` deploys as its own Node service (Railway/Render/Fly/a VPS — anywhere Node
-runs), with `NODE_ENV=production`, a real `FRONTEND_ORIGIN` (the deployed site's exact origin —
-required for the auth cookie to work cross-domain), and `NEXT_PUBLIC_API_URL` on the Next.js side
-pointed at that service's URL.
-
-**Updating a request's status:** there's still no UI specifically for `service_requests` (the
-`/portal` self-service view) — call `PATCH <api-url>/admin/requests/:id/status` with header
-`Authorization: Bearer <ADMIN_API_KEY>` and body `{"status": "in_review"}` (one of `submitted` /
-`in_review` / `in_progress` / `completed`), e.g. via curl or Postman. The client sees the change
-next time they load `/portal`. (For the separate, complete picture of every enquiry site-wide —
-including the ones that never created an account — see "Admin dashboard" below, which does have a
-real UI.)
-
-**Still to build:** real candidate matching for recruitment (status is a manually-set label, not
-driven by any matching logic) and password reset. Submissions still also flow through the existing
-`app/api/enquiry/route.ts` CRM webhook unchanged, independent of this API — so the future Zoho
-connection and this login system don't depend on each other.
-
-## Admin dashboard
-
-Every form submission site-wide — regardless of division, and regardless of whether the submitter
-created a client account — is recorded and visible at `/admin`. This is what closes the gap the
-client originally wanted Zoho for: one place to see every lead/enquiry, filter by status, and move
-it through a pipeline (New → Contacted → In Progress → Won/Lost).
-
-**How it's populated:** `app/api/enquiry/route.ts` — the one route every form already posts to —
-forwards a normalised copy of each submission to the API's `POST /enquiries` endpoint. Nothing in
-any form component needed to change for this; it was already the single point every submission
-already passed through.
+**API docs:** every endpoint is documented at `/api-docs` (Swagger UI) — request/response shapes,
+which are auth-protected, and a "Try it out" button that works directly, since the docs and the
+API are always the same origin.
 
 **Creating the first (or another) staff account** — there's no public admin signup, deliberately.
 Create one via the key-gated endpoint:
 ```bash
-curl -X POST <api-url>/admin/auth/signup \
+curl -X POST <site-url>/api/admin/auth/signup \
   -H "Authorization: Bearer <ADMIN_API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{"email":"staff@activeworkforcesolutions.com","password":"choose-a-real-password","name":"Staff Name"}'
 ```
-Then log in normally at `/admin/login` with that email and password — it's a real session (its own
-`admin_token` cookie, entirely separate from client logins), not the shared key.
+Then log in normally at `/admin/login` — it's a real session (its own `admin_token` cookie,
+entirely separate from client logins), not the shared key.
 
-**Env vars needed beyond what "Client accounts & portal" already covers:** the Next.js app now
-also needs `ADMIN_API_KEY` (must match `server/.env`'s value exactly) so `/api/enquiry` can
-authenticate its call to `POST /enquiries` — see `.env.example`.
+**Updating a `service_request`'s status** (the `/portal` self-service view specifically — for the
+main admin dashboard, just use the `/admin` UI): call
+`PATCH <site-url>/api/admin/requests/:id/status` with header `Authorization: Bearer <ADMIN_API_KEY>`
+and body `{"status": "in_review"}` (one of `submitted` / `in_review` / `in_progress` / `completed`),
+e.g. via curl or Postman.
 
-**Still to build:** per-admin roles/permissions (every staff account currently has full access),
-pagination on the dashboard list beyond the first 50 (fine for launch volume, revisit once real
-traffic arrives), and a division filter alongside the existing status filter.
+**Deploying:** one Vercel project, same as any Next.js app. Set `DATABASE_URL`, `JWT_SECRET`, and
+`ADMIN_API_KEY` in the project's environment variables — nothing else to stand up or point at each
+other.
+
+**Still to build:** real candidate matching for recruitment (status is a manually-set label, not
+driven by any matching logic), password reset, per-admin roles/permissions (every staff account
+currently has full access), and pagination on the dashboard list beyond the first 50 (fine for
+launch volume, revisit once real traffic arrives). Submissions still also flow through the existing
+`app/api/enquiry/route.ts` CRM webhook unchanged, independent of the database — so the future Zoho
+connection and this login/dashboard system don't depend on each other.
 
 ## Content model
 
@@ -164,8 +150,9 @@ one-line change per entry, not a hunt through every page component.
 ## Still needed before launch
 
 - Confirm CRM and wire up `CRM_WEBHOOK_URL`
-- Provision a PostgreSQL database and deploy `server/` (see "Client accounts & portal" above) —
-  without them, every "Get Started"/"Login" flow across the site will error
+- Provision a PostgreSQL database and set `DATABASE_URL`/`JWT_SECRET`/`ADMIN_API_KEY` in Vercel
+  (see "Client accounts, admin dashboard & the database" above) — without them, every
+  "Get Started"/"Login" flow across the site will error
 - Real content for the five remaining divisions
 - Final domain + hosting confirmation, then update `metadataBase` in
   `app/layout.tsx` and the base URL in `app/sitemap.ts`

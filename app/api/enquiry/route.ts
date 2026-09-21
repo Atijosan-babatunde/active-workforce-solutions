@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { isValidEmail, isValidPhone } from "@/components/wizard/FormControls";
+import { prisma } from "@/lib/server/prisma";
+import { withErrorHandling } from "@/lib/server/withErrorHandling";
 
 const MAX_FIELD_LENGTH = 5000;
 
@@ -8,17 +11,17 @@ const MAX_FIELD_LENGTH = 5000;
 // else in the site talks to this route only — nothing else needs to know
 // about the CRM.
 //
-// It also persists every submission into our own database (via the
-// Express API's /enquiries endpoint) so the admin dashboard at /admin has
-// a complete record, regardless of whether the submitter also created a
-// client account — that's a separate, optional path that only creates a
+// It also persists every submission directly into our own database (an
+// in-process Prisma call, not an HTTP hop — frontend and API live in the
+// same Next.js app) so the admin dashboard at /admin has a complete
+// record, regardless of whether the submitter also created a client
+// account — that's a separate, optional path that only creates a
 // ServiceRequest for the smaller subset who opt into /portal tracking.
 //
 // Required env vars (set in Vercel project settings, never commit real values):
-//   CRM_WEBHOOK_URL      - the CRM's inbound webhook / API endpoint
-//   CRM_API_KEY          - auth token for that endpoint
-//   NEXT_PUBLIC_API_URL  - the Express API's base URL (see server/)
-//   ADMIN_API_KEY        - shared secret the Express API trusts (see server/.env)
+//   CRM_WEBHOOK_URL   - the CRM's inbound webhook / API endpoint
+//   CRM_API_KEY       - auth token for that endpoint
+//   DATABASE_URL      - see README.md "Admin dashboard"
 //
 // Until CRM_WEBHOOK_URL is set, submissions are still logged server-side so
 // the form can be tested end-to-end before a CRM is chosen.
@@ -45,7 +48,7 @@ const DIVISION_DEFAULTS: Record<string, string> = {
   "perm-temp-recruitment": "active-workforce-recruitment",
 };
 
-function toEnquiryPayload(body: Record<string, unknown>) {
+function toEnquiryData(body: Record<string, unknown>) {
   const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : undefined);
   const enquiryType = str(body.enquiryType) ?? "unknown";
 
@@ -63,11 +66,11 @@ function toEnquiryPayload(body: Record<string, unknown>) {
     organisation: str(body.organisation),
     description: str(body.description),
     sourcePage: str(body.sourcePage),
-    details: Object.keys(details).length > 0 ? details : undefined,
+    details: Object.keys(details).length > 0 ? (details as Prisma.InputJsonValue) : undefined,
   };
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withErrorHandling(async (req: NextRequest) => {
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -128,24 +131,13 @@ export async function POST(req: NextRequest) {
     console.log("Enquiry received (CRM_WEBHOOK_URL not yet configured):", record);
   }
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  const adminApiKey = process.env.ADMIN_API_KEY;
-  if (apiUrl && adminApiKey) {
-    try {
-      const res = await fetch(`${apiUrl}/enquiries`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminApiKey}` },
-        body: JSON.stringify(toEnquiryPayload(body)),
-      });
-      if (!res.ok) console.error("Enquiry persistence failed:", res.status, await res.text());
-    } catch (err) {
-      // Same principle as the CRM webhook above — never fail the visitor's
-      // submission because our own admin-dashboard database is unreachable.
-      console.error("Enquiry persistence failed:", err);
-    }
-  } else {
-    console.log("Enquiry not persisted to admin dashboard (NEXT_PUBLIC_API_URL/ADMIN_API_KEY not yet configured)");
+  try {
+    await prisma.enquiry.create({ data: toEnquiryData(body) });
+  } catch (err) {
+    // Same principle as the CRM webhook above — never fail the visitor's
+    // submission because the admin-dashboard database write failed.
+    console.error("Enquiry persistence failed:", err);
   }
 
   return NextResponse.json({ ok: true });
-}
+});

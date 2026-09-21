@@ -1,25 +1,35 @@
-import { cookies } from "next/headers";
+import { prisma } from "@/lib/server/prisma";
+import { getAuthUserId } from "@/lib/server/jwt";
 import type { ApiUser } from "./client";
 import type { ServiceRequest } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-// Server Components have no ambient browser cookie jar — the auth cookie
-// has to be forwarded by hand from next/headers on every call here.
-function authHeaders() {
-  return { Cookie: cookies().toString() };
-}
+// Server Component data access — talks to Prisma directly rather than
+// making an HTTP call to this same app's own API routes (a self-fetch is
+// both slower and, for Server Components specifically, an anti-pattern in
+// Next.js). Client Components still go through lib/api/client.ts's fetch
+// wrapper, since they have no direct database access.
 
 export async function getCurrentUser(): Promise<ApiUser | null> {
-  const res = await fetch(`${API_URL}/auth/me`, { headers: authHeaders(), cache: "no-store" });
-  if (!res.ok) return null;
-  const { user } = await res.json();
-  return user;
+  const userId = getAuthUserId();
+  if (!userId) return null;
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  return user ? { id: user.id, email: user.email } : null;
 }
 
 export async function getMyServiceRequests(): Promise<ServiceRequest[]> {
-  const res = await fetch(`${API_URL}/requests`, { headers: authHeaders(), cache: "no-store" });
-  if (!res.ok) return [];
-  const { requests } = await res.json();
-  return requests;
+  const userId = getAuthUserId();
+  if (!userId) return [];
+  const requests = await prisma.serviceRequest.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+  return requests.map((r) => ({
+    id: r.id,
+    division: r.division,
+    source: r.source as ServiceRequest["source"],
+    description: r.description,
+    details: r.details as Record<string, unknown> | null,
+    status: r.status as ServiceRequest["status"],
+    createdAt: r.createdAt.toISOString(),
+  }));
 }

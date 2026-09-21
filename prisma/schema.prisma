@@ -1,0 +1,67 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String           @id @default(uuid())
+  email        String           @unique
+  passwordHash String
+  createdAt    DateTime         @default(now())
+  requests     ServiceRequest[]
+}
+
+// source/status are plain strings (not Postgres enums), validated at the API
+// boundary with zod — mirrors how the frontend already encodes them as
+// string-literal unions, and avoids a migration for every new value.
+model ServiceRequest {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  division    String
+  source      String
+  description String
+  details     Json?
+  status      String   @default("submitted")
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+// A separate account type from User — staff who log into /admin, not clients.
+model AdminUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+}
+
+// The admin-facing record of every form submission site-wide, regardless of
+// whether the submitter created a client account (ServiceRequest is only
+// created for the subset who did, for the separate /portal self-service
+// view). Populated directly by app/api/enquiry/route.ts on every submission
+// — the same complete picture a CRM like Zoho would have held.
+model Enquiry {
+  id           String   @id @default(uuid())
+  enquiryType  String // "client" | "professional" | "employer-recruitment" | "perm-temp-recruitment"
+  division     String?
+  fullName     String
+  email        String
+  phone        String?
+  organisation String?
+  description  String?
+  sourcePage   String?
+  details      Json?
+  status       String   @default("new") // new | contacted | in_progress | won | lost
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([division])
+  @@index([createdAt])
+}

@@ -1,7 +1,5 @@
 import type { ServiceRequest, ServiceRequestSource } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
 export type ApiUser = { id: string; email: string };
 
 class ApiError extends Error {
@@ -12,13 +10,11 @@ class ApiError extends Error {
   }
 }
 
-// credentials: "include" is required on every call — without it the browser
-// never sends/stores the auth cookie cross-origin, and it fails silently
-// (no thrown error, the request just comes back unauthenticated).
+// Relative paths — frontend and API are the same Next.js app now, so this
+// is always same-origin (no CORS, no cross-domain cookie configuration).
 async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  return fetch(`${API_URL}${path}`, {
+  return fetch(path, {
     ...options,
-    credentials: "include",
     headers: { "Content-Type": "application/json", ...options.headers },
   });
 }
@@ -29,28 +25,24 @@ async function parseOrThrow<T>(res: Response): Promise<T> {
   return body as T;
 }
 
-export function isApiConfigured(): boolean {
-  return !!API_URL;
-}
-
 export async function signup(email: string, password: string): Promise<ApiUser> {
-  const res = await apiFetch("/auth/signup", { method: "POST", body: JSON.stringify({ email, password }) });
+  const res = await apiFetch("/api/auth/signup", { method: "POST", body: JSON.stringify({ email, password }) });
   const { user } = await parseOrThrow<{ user: ApiUser }>(res);
   return user;
 }
 
 export async function login(email: string, password: string): Promise<ApiUser> {
-  const res = await apiFetch("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+  const res = await apiFetch("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
   const { user } = await parseOrThrow<{ user: ApiUser }>(res);
   return user;
 }
 
 export async function logout(): Promise<void> {
-  await apiFetch("/auth/logout", { method: "POST" });
+  await apiFetch("/api/auth/logout", { method: "POST" });
 }
 
 export async function getCurrentUser(): Promise<ApiUser | null> {
-  const res = await apiFetch("/auth/me");
+  const res = await apiFetch("/api/auth/me");
   if (!res.ok) return null;
   const { user } = await res.json();
   return user;
@@ -62,13 +54,13 @@ export async function createServiceRequest(payload: {
   description: string;
   details?: Record<string, unknown>;
 }): Promise<ServiceRequest> {
-  const res = await apiFetch("/requests", { method: "POST", body: JSON.stringify(payload) });
+  const res = await apiFetch("/api/requests", { method: "POST", body: JSON.stringify(payload) });
   const { request } = await parseOrThrow<{ request: ServiceRequest }>(res);
   return request;
 }
 
 export async function listServiceRequests(): Promise<ServiceRequest[]> {
-  const res = await apiFetch("/requests");
+  const res = await apiFetch("/api/requests");
   const { requests } = await parseOrThrow<{ requests: ServiceRequest[] }>(res);
   return requests;
 }
