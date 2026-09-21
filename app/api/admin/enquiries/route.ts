@@ -4,6 +4,9 @@ import { prisma } from "@/lib/server/prisma";
 import { getAdminId } from "@/lib/server/adminJwt";
 import { withErrorHandling } from "@/lib/server/withErrorHandling";
 
+// Reads cookies, so it can never be prerendered at build time.
+export const dynamic = "force-dynamic";
+
 const STATUSES = ["new", "contacted", "in_progress", "won", "lost"] as const;
 
 const listQuerySchema = z.object({

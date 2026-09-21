@@ -5,6 +5,9 @@ import { prisma } from "@/lib/server/prisma";
 import { getAuthUserId } from "@/lib/server/jwt";
 import { withErrorHandling } from "@/lib/server/withErrorHandling";
 
+// Reads cookies, so it can never be prerendered at build time.
+export const dynamic = "force-dynamic";
+
 const SOURCES = ["contact-wizard", "employer-recruitment", "perm-temp-recruitment"] as const;
 
 const createRequestSchema = z.object({
